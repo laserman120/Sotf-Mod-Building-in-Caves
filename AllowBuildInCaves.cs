@@ -2,14 +2,9 @@
 using Sons.Gui;
 using SonsSdk;
 using UnityEngine;
-using System.Reflection;
 using SUI;
 using RedLoader;
 using Sons.Areas;
-using Il2CppInterop.Common;
-using RedLoader.NativeUtils;
-using System;
-using System.Runtime.InteropServices;
 using HarmonyLib;
 
 namespace AllowBuildInCaves;
@@ -33,7 +28,6 @@ public class AllowBuildInCaves : SonsMod
     {
         // Do your early mod initialization which doesn't involve game or sdk references here
         Config.Init();
-        //Config.ToggleKey.Notify(MainToggle);
     }
 
     protected override void OnSdkInitialized()
@@ -43,7 +37,7 @@ public class AllowBuildInCaves : SonsMod
         AllowBuildInCavesUi.Create();
 
         // Add in-game settings ui for your mod.
-        //SettingsRegistry.CreateSettings(this, null, typeof(Config));
+        SettingsRegistry.CreateSettings(this, null, typeof(Config));
     }
 
 
@@ -93,7 +87,6 @@ public class AllowBuildInCaves : SonsMod
         List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
         foreach (Transform t in CaveExternalTransforms)
         {
-
             if (t.name.StartsWith("CaveEntrance") || t.name.StartsWith("CaveEntranceShimmy") || t.name.StartsWith("CaveExitShimmy"))
             {
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
@@ -125,9 +118,7 @@ public class AllowBuildInCaves : SonsMod
                         {
                             if (t3.name == "AmbientOverride") { GameObject.Destroy(t3.gameObject); }
                         }
-                    
                     }
-                    
                 }
             }
         }
@@ -163,13 +154,7 @@ public class AllowBuildInCaves : SonsMod
 
     private void DestroyEntrances()
     {
-        DestroyCaveEntrance("CaveBExternal");
-        DestroyCaveEntrance("CaveCExternal");
-        DestroyCaveEntrance("CaveDExternal");
-        DestroyCaveEntrance("CaveF_External");
-        DestroyCaveEntrance("BE_External");
-        DestroyCaveEntrance("BF_External");
-        DestroyCaveEntrance("BunkerFExternal");
+        //Adjustments to allow building in caves/cellars
         AdjustHouseCave("CaveG_External");
         AdjustHouseCave("CellarA");
         AdjustCellarCave("CellarN");
@@ -185,5 +170,14 @@ public class AllowBuildInCaves : SonsMod
         AdjustCellarCave("CellarQ");
         AdjustCellarCave("CellarM");
         AdjustCellarCave("CellarH");
+        if (Config.DontOpenCaves.Value) { return; }
+        //opening cave entrances
+        DestroyCaveEntrance("CaveBExternal");
+        DestroyCaveEntrance("CaveCExternal");
+        DestroyCaveEntrance("CaveDExternal");
+        DestroyCaveEntrance("CaveF_External");
+        DestroyCaveEntrance("BE_External");
+        DestroyCaveEntrance("BF_External");
+        DestroyCaveEntrance("BunkerFExternal");
     }
 }
