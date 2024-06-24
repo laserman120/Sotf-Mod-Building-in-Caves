@@ -6,6 +6,7 @@ using SUI;
 using RedLoader;
 using Sons.Areas;
 using HarmonyLib;
+using Endnight.Utilities;
 
 namespace AllowBuildInCaves;
 
@@ -88,6 +89,24 @@ public class AllowBuildInCaves : SonsMod
         {
             if (t.name.StartsWith("CaveEntrance") || t.name.StartsWith("CaveEntranceShimmy") || t.name.StartsWith("CaveExitShimmy"))
             {
+                List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
+                foreach (Transform t2 in CaveEntranceTransforms)
+                {
+                    if (t2.name == "EntranceTrigger" || t2.name == "ExitTrigger" || t2.name == "QuadBlockerEnterCave" || t2.name == "QuadBlockerExitCave" || t2.name == "Renderable") t2.gameObject.SetActive(false);
+                }
+            }
+        }
+    }
+
+    private void DestroyCaveEntranceCaveBException(string CaveName)
+    {
+        GameObject CaveExternal = GameObject.Find(CaveName);
+        List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
+        foreach (Transform t in CaveExternalTransforms)
+        {
+            if (t.name.StartsWith("CaveEntrance") || t.name.StartsWith("CaveEntranceShimmy") || t.name.StartsWith("CaveExitShimmy"))
+            {
+                if(t.name.EndsWith("exitShimmy")) { continue; }
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
                 foreach (Transform t2 in CaveEntranceTransforms)
                 {
@@ -182,8 +201,51 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    private void EntranceManagerGroupFix(string EntranceManagerGroupName)
+    {
+        GameObject EntranceManagerGroup = GameObject.Find(EntranceManagerGroupName);
+        List<Transform> EntranceManagerGroupTransforms = EntranceManagerGroup.GetChildren();
+        foreach (Transform t in EntranceManagerGroupTransforms)
+        {
+            //Cave C Fix
+            if(t.name.EndsWith("CaveEntrance") || t.name.EndsWith("Cavexit"))
+            {
+                //Fetch the component Endnight.Utilities.DirectionalTrigger
+                DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
+                if(dt != null) { dt._useInnerBoundary = true; }
+                if (t.name.EndsWith("Cavexit"))
+                {
+                    t.localScale = new Vector3(0.1f, 0.7f, 0.5f);
+                } else
+                {
+                    t.localScale = new Vector3(0.06f, 0.3f, 0.3f);
+                }
+                
+            }
+
+            //Cave B Fix
+            if (t.name.EndsWith("entranceSwitcher") || t.name.EndsWith("exitSwitcher"))
+            {
+                //Fetch the component Endnight.Utilities.DirectionalTrigger
+                DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
+                if (dt != null) { dt._useInnerBoundary = true; }
+                t.localScale = new Vector3(0.1f, 0.7f, 0.5f);
+            }
+
+            //Cave F Fix && Luxury Bunker Fix
+            if (t.name == "CaveEntrance")
+            {
+                //Fetch the component Endnight.Utilities.DirectionalTrigger
+                DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
+                if(dt != null) { dt._useInnerBoundary = true; }
+            }
+
+        }
+    }
+
     private void DestroyEntrances()
     {
+
         //Adjustments to allow building in caves/cellars
         var houseCaveNames = new List<string> { "CaveG_External", "CellarA" };
         var cellarNames = new List<string> { "CellarN", "CellarF", "CellarO", "CellarE", "CellarB", "CellarD", "CellarK", "CellarP", "CellarC", "CellarL", "CellarQ", "CellarM", "CellarH" };
@@ -204,12 +266,19 @@ public class AllowBuildInCaves : SonsMod
 
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> { "CaveAExternal", "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> {"CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
             DestroyCaveEntrance(caveEntranceName);
         }
+        DestroyCaveEntranceCaveBException("CaveBExternal");
+
+        EntranceManagerGroupFix("CaveC_EntranceManagerGroup");
+        EntranceManagerGroupFix("CaveBExternal");
+        EntranceManagerGroupFix("CaveF_External");
+        EntranceManagerGroupFix("CaveEExternal");
+
         DestroyLuxuryEntrance("CaveEExternal");
     }
 }
