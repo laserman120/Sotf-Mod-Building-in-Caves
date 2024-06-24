@@ -13,7 +13,6 @@ public static class Config
     {
         Category = ConfigSystem.CreateFileCategory("AllowBuildInCaves", "AllowBuildInCaves", "AllowBuildInCaves.cfg");
 
-
         DontOpenCaves = Category.CreateEntry(
             "dont_enable_caves",
            false,

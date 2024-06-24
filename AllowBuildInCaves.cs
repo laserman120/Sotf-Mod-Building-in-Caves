@@ -40,7 +40,6 @@ public class AllowBuildInCaves : SonsMod
         SettingsRegistry.CreateSettings(this, null, typeof(Config));
     }
 
-
     protected override void OnGameStart()
     {
         // This is called once the player spawns in the world and gains control.
@@ -92,8 +91,7 @@ public class AllowBuildInCaves : SonsMod
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
                 foreach (Transform t2 in CaveEntranceTransforms)
                 {
-                    if (t2.name == "Renderable"){ t2.gameObject.SetActive(false); }
-                    if (t2.name == "EntranceTrigger" || t2.name == "ExitTrigger" || t2.name == "QuadBlockerEnterCave" || t2.name == "QuadBlockerExitCave") t2.gameObject.SetActive(false);
+                    if (t2.name == "EntranceTrigger" || t2.name == "ExitTrigger" || t2.name == "QuadBlockerEnterCave" || t2.name == "QuadBlockerExitCave" || t2.name == "Renderable") t2.gameObject.SetActive(false);
                 }
             }
         }
@@ -152,32 +150,66 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    private void AdjustIceCave(string CaveName)
+    {
+        GameObject CaveExternal = GameObject.Find(CaveName);
+        List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
+        foreach (Transform t in CaveExternalTransforms)
+        {
+            if (t.name == "AmbientOverride") { GameObject.Destroy(t.gameObject); }
+        }
+    }
+
+    private void DestroyLuxuryEntrance(string CaveName)
+    {
+        GameObject CaveExternal = GameObject.Find(CaveName);
+        List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
+        foreach (Transform t in CaveExternalTransforms)
+        {
+            if (t.name != "LAYOUT") { continue; }
+            List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
+            foreach (Transform t2 in CaveEntranceTransforms)
+            {
+                if (t2.name.StartsWith("BodyShelving") || t2.name.StartsWith("CaveEntrance")) 
+                {
+                    List<Transform> CaveEntranceTransforms2 = t2.gameObject.GetChildren();
+                    foreach (Transform t3 in CaveEntranceTransforms2)
+                    {
+                        if (t3.name == "WorkerDudePoser" || t3.name == "Renderable") { GameObject.Destroy(t2.gameObject); }
+                    }
+                }
+            }
+        }
+    }
+
     private void DestroyEntrances()
     {
         //Adjustments to allow building in caves/cellars
-        AdjustHouseCave("CaveG_External");
-        AdjustHouseCave("CellarA");
-        AdjustCellarCave("CellarN");
-        AdjustCellarCave("CellarF");
-        AdjustCellarCave("CellarO");
-        AdjustCellarCave("CellarE");
-        AdjustCellarCave("CellarB");
-        AdjustCellarCave("CellarD");
-        AdjustCellarCave("CellarK");
-        AdjustCellarCave("CellarP");
-        AdjustCellarCave("CellarC");
-        AdjustCellarCave("CellarL");
-        AdjustCellarCave("CellarQ");
-        AdjustCellarCave("CellarM");
-        AdjustCellarCave("CellarH");
+        var houseCaveNames = new List<string> { "CaveG_External", "CellarA" };
+        var cellarNames = new List<string> { "CellarN", "CellarF", "CellarO", "CellarE", "CellarB", "CellarD", "CellarK", "CellarP", "CellarC", "CellarL", "CellarQ", "CellarM", "CellarH" };
+        var íceCaveNames = new List<string> { "IceCaveAInventoryAmbientOverride", "IceCaveCInventoryAmbientOverride" };
+
+        foreach (var houseCaveName in houseCaveNames)
+        {
+            AdjustHouseCave(houseCaveName);
+        }
+        foreach (var cellarName in cellarNames)
+        {
+            AdjustCellarCave(cellarName);
+        }
+        foreach (var iceCaveName in íceCaveNames)
+        {
+            AdjustIceCave(iceCaveName);
+        }
+
         if (Config.DontOpenCaves.Value) { return; }
+
+        var caveEntranceNames = new List<string> { "CaveAExternal", "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
-        DestroyCaveEntrance("CaveBExternal");
-        DestroyCaveEntrance("CaveCExternal");
-        DestroyCaveEntrance("CaveDExternal");
-        DestroyCaveEntrance("CaveF_External");
-        DestroyCaveEntrance("BE_External");
-        DestroyCaveEntrance("BF_External");
-        DestroyCaveEntrance("BunkerFExternal");
+        foreach (var caveEntranceName in caveEntranceNames)
+        {
+            DestroyCaveEntrance(caveEntranceName);
+        }
+        DestroyLuxuryEntrance("CaveEExternal");
     }
 }
