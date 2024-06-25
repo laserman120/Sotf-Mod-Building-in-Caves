@@ -50,7 +50,18 @@ public class AllowBuildInCaves : SonsMod
         DestroyEntrances();
     }
 
-    [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
+
+    [HarmonyPatch(typeof(ConstructionManager.PlayerInfo), "get_IsInCave")] // Target the nested class property
+    private static class ConstructionPatch
+    {
+        private static bool Prefix(ref bool __result) 
+        {
+            __result = false;
+            return false; // Skip the original getter
+        }
+    }
+
+    /*[HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
     private static class EnterPatch
     {
         private static void Postfix()
@@ -79,7 +90,7 @@ public class AllowBuildInCaves : SonsMod
         {
             CaveEntranceManager._isInCaves = false;
         }
-    }
+    }*/
 
     private void DestroyCaveEntrance(string CaveName)
     {
