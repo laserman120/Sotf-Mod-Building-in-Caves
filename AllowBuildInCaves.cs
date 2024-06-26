@@ -7,9 +7,27 @@ using RedLoader;
 using Sons.Areas;
 using HarmonyLib;
 using Endnight.Utilities;
+using TheForest.Utils;
+using System.Reflection.Emit;
+using System.Reflection;
+using TheForest.Player.Actions;
+using Endnight.Environment;
+using System.Runtime.InteropServices;
+using Sons.Gameplay;
+using Sons.Gameplay.GPS;
 
 namespace AllowBuildInCaves;
 
+public static class IsInCavesStateManager
+{
+    public static bool IsInCaves { get; private set; } // Store the real state
+    public static bool? ChangeIsInCaves { get; set; } = null; // Store the state that will be used in the game
+    public static bool GPSShouldLoseSignal { get; set; } = false; // Store the state that will be used in the game
+
+    // Add methods to update the state when entering/exiting caves
+    public static void EnterCave() => IsInCaves = true;
+    public static void ExitCave() => IsInCaves = false;
+}
 public class AllowBuildInCaves : SonsMod
 {
     public AllowBuildInCaves()
@@ -22,7 +40,7 @@ public class AllowBuildInCaves : SonsMod
         //OnGUICallback = MyGUIMethod;
 
         // Uncomment this to automatically apply harmony patches in your assembly.
-        HarmonyPatchAll = true;
+        HarmonyPatchAll = true; 
     }
 
     protected override void OnInitializeMod()
@@ -39,6 +57,10 @@ public class AllowBuildInCaves : SonsMod
 
         // Add in-game settings ui for your mod.
         SettingsRegistry.CreateSettings(this, null, typeof(Config));
+        
+        // Add a keybind to toggle the mod
+
+        //Config.ToggleKey.Notify(MainToggle);
     }
 
     protected override void OnGameStart()
@@ -47,26 +69,77 @@ public class AllowBuildInCaves : SonsMod
 
         //Find the construction manager in the scene.
         //This is the manager that handles all construction in the game.
+        IsInCavesStateManager.GPSShouldLoseSignal = Config.GPSLoseSignal.Value;
         DestroyEntrances();
     }
 
+    // I hate my life. 8 Hours of pain
+    //Cave Teleport Fix
 
-    [HarmonyPatch(typeof(ConstructionManager.PlayerInfo), "get_IsInCave")] // Target the nested class property
-    private static class ConstructionPatch
+    [HarmonyPatch(typeof(CaveEntranceManager), "UpdateAllPlayerAreaMask")]
+    private static class PlayerMaskHijakPatch
     {
-        private static bool Prefix(ref bool __result) 
+        private static void Prefix()
         {
-            __result = false;
-            return false; // Skip the original getter
+            if(IsInCavesStateManager.ChangeIsInCaves == true)
+            {
+                if(CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
+                {
+                    CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
+                }
+            } else if (IsInCavesStateManager.ChangeIsInCaves == false)
+            {
+                CaveEntranceManager._isInCaves = false;
+                IsInCavesStateManager.ChangeIsInCaves = null;
+            }
         }
     }
 
-    /*[HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
+    [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
+    private static class TryGatheringPatch
+    {
+        private static void Prefix()
+        {
+            if (IsInCavesStateManager.ChangeIsInCaves == null)
+            {
+                IsInCavesStateManager.ChangeIsInCaves = true;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(GatherablePickup), "OnGatheringCompleteCallback")]
+    private static class EndGatheringPatch
+    {
+        private static void Prefix()
+        {
+            IsInCavesStateManager.ChangeIsInCaves = false;
+        }
+    }
+    //End of misery
+
+    //Gps Tracker Fix
+    [HarmonyPatch(typeof(GPSTrackerSystem), "LateUpdate")]
+    private static class GPSTrackerCaveFix
+    {
+        private static void Postfix(GPSTrackerSystem __instance)
+        {
+            if (IsInCavesStateManager.GPSShouldLoseSignal == true)
+            {
+                __instance._trackerSignalLost = IsInCavesStateManager.IsInCaves;
+                __instance._signalLost.SetActive(__instance._trackerSignalLost);
+                __instance._screenStatic.SetActive(!__instance._trackerSignalLost);
+                __instance._playerArrow.gameObject.SetActive(!__instance._trackerSignalLost);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
     private static class EnterPatch
     {
         private static void Postfix()
         {
             CaveEntranceManager._isInCaves = false;
+            IsInCavesStateManager.EnterCave();
         }
     }
 
@@ -80,6 +153,7 @@ public class AllowBuildInCaves : SonsMod
         private static void Postfix()
         {
             CaveEntranceManager._isInCaves = false;
+            IsInCavesStateManager.ExitCave();
         }
     }
 
@@ -90,7 +164,8 @@ public class AllowBuildInCaves : SonsMod
         {
             CaveEntranceManager._isInCaves = false;
         }
-    }*/
+    }
+
 
     private void DestroyCaveEntrance(string CaveName)
     {
