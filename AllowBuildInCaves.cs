@@ -15,6 +15,13 @@ using Endnight.Environment;
 using System.Runtime.InteropServices;
 using Sons.Gameplay;
 using Sons.Gameplay.GPS;
+using Sons.Ai;
+using Sons.Animation.PlayerControl;
+using Sons.Cutscenes;
+using UnityEngine.Playables;
+using static RedLoader.RLog;
+using TheForest.Items.Inventory;
+using TheForest.Items.Special;
 
 namespace AllowBuildInCaves;
 
@@ -73,27 +80,9 @@ public class AllowBuildInCaves : SonsMod
         DestroyEntrances();
     }
 
-    // I hate my life. 8 Hours of pain
     //Cave Teleport Fix
 
-    [HarmonyPatch(typeof(CaveEntranceManager), "UpdateAllPlayerAreaMask")]
-    private static class PlayerMaskHijakPatch
-    {
-        private static void Prefix()
-        {
-            if(IsInCavesStateManager.ChangeIsInCaves == true)
-            {
-                if(CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
-                {
-                    CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
-                }
-            } else if (IsInCavesStateManager.ChangeIsInCaves == false)
-            {
-                CaveEntranceManager._isInCaves = false;
-                IsInCavesStateManager.ChangeIsInCaves = null;
-            }
-        }
-    }
+
 
     [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
     private static class TryGatheringPatch
@@ -115,7 +104,6 @@ public class AllowBuildInCaves : SonsMod
             IsInCavesStateManager.ChangeIsInCaves = false;
         }
     }
-    //End of misery
 
     //Gps Tracker Fix
     [HarmonyPatch(typeof(GPSTrackerSystem), "LateUpdate")]
@@ -132,6 +120,75 @@ public class AllowBuildInCaves : SonsMod
             }
         }
     }
+
+    //Sledding Teleport Fix
+    [HarmonyPatch(typeof(PlayerAnimatorControl), "StartSledding")]
+    private static class StartSleddingPatch
+    {
+        private static void Prefix()
+        {
+            if (IsInCavesStateManager.ChangeIsInCaves == null)
+            {
+                IsInCavesStateManager.ChangeIsInCaves = true;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(PlayerAnimatorControl), "EndSledding")]
+    private static class EndSleddingPatch
+    {
+        private static void Prefix()
+        {
+            IsInCavesStateManager.ChangeIsInCaves = false;
+        }
+    }
+
+    //Butterfly Spawn Fix
+    [HarmonyPatch(typeof(ButterflySpawner), "CanSpawn")]
+    private static class ButterflySpawnPatch
+    {
+        static bool Prefix()
+        {
+            if (IsInCavesStateManager.IsInCaves == true)
+            {
+                return false;
+            } else
+            {
+                return true;
+            }
+        }
+    }
+
+    //Rebreather fix
+    [HarmonyPatch(typeof(PlayerAnimatorControl), "UpdateInWaterControl")]
+    private static class RebreatherFixPatch
+    {
+        private static void Postfix(PlayerAnimatorControl __instance)
+        {
+            if(__instance._divingStarted && IsInCavesStateManager.IsInCaves == true)
+            {
+                if (LocalPlayer.Inventory.Owns(444))
+                {
+                    LocalPlayer.Inventory.TryEquip(444, false, true);
+                }
+            }
+        }
+    }
+
+    //Inventory LED strip fix
+    [HarmonyPatch(typeof(Sons.Inventory.InventoryLedStripManager), "Update")]
+    private static class LedStripPatch
+    {
+        private static void Postfix(Sons.Inventory.InventoryLedStripManager __instance)
+        {
+            if(IsInCavesStateManager.IsInCaves == true && !__instance._manuallyTriggeredPowerState && !__instance._isPowerOn)
+            {
+                __instance.PowerOn(true);
+            }
+        }
+    }
+
+    //Main IsInCaves Patch
 
     [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
     private static class EnterPatch
@@ -166,7 +223,29 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    //Allow changing the IsInCaves state in the CaveEntranceManager
 
+    [HarmonyPatch(typeof(CaveEntranceManager), "UpdateAllPlayerAreaMask")]
+    private static class PlayerMaskHijakPatch
+    {
+        private static void Prefix()
+        {
+            if (IsInCavesStateManager.ChangeIsInCaves == true)
+            {
+                if (CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
+                {
+                    CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
+                }
+            }
+            else if (IsInCavesStateManager.ChangeIsInCaves == false)
+            {
+                CaveEntranceManager._isInCaves = false;
+                IsInCavesStateManager.ChangeIsInCaves = null;
+            }
+        }
+    }
+
+    //General Routines
     private void DestroyCaveEntrance(string CaveName)
     {
         GameObject CaveExternal = GameObject.Find(CaveName);
@@ -331,7 +410,6 @@ public class AllowBuildInCaves : SonsMod
 
     private void DestroyEntrances()
     {
-
         //Adjustments to allow building in caves/cellars
         var houseCaveNames = new List<string> { "CaveG_External", "CellarA" };
         var cellarNames = new List<string> { "CellarN", "CellarF", "CellarO", "CellarE", "CellarB", "CellarD", "CellarK", "CellarP", "CellarC", "CellarL", "CellarQ", "CellarM", "CellarH" };
