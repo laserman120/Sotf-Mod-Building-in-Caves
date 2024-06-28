@@ -22,6 +22,7 @@ using UnityEngine.Playables;
 using static RedLoader.RLog;
 using TheForest.Items.Inventory;
 using TheForest.Items.Special;
+using Sons.Settings;
 
 namespace AllowBuildInCaves;
 
@@ -30,6 +31,7 @@ public static class IsInCavesStateManager
     public static bool IsInCaves { get; private set; } // Store the real state
     public static bool? ChangeIsInCaves { get; set; } = null; // Store the state that will be used in the game
     public static bool GPSShouldLoseSignal { get; set; } = false; // Store the state that will be used in the game
+    public static bool ApplyBlueFix { get; set; } = false; // Store the state that will be used in the game
 
     // Add methods to update the state when entering/exiting caves
     public static void EnterCave() => IsInCaves = true;
@@ -77,13 +79,12 @@ public class AllowBuildInCaves : SonsMod
         //Find the construction manager in the scene.
         //This is the manager that handles all construction in the game.
         IsInCavesStateManager.GPSShouldLoseSignal = Config.GPSLoseSignal.Value;
+        IsInCavesStateManager.ApplyBlueFix = Config.BlueFix.Value;
+        if(IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
         DestroyEntrances();
     }
 
     //Cave Teleport Fix
-
-
-
     [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
     private static class TryGatheringPatch
     {
@@ -188,6 +189,21 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    //IsInSnow fix (Honestly dont know what this does)
+    [HarmonyPatch(typeof(PlayerStats), "IsInSnow")]
+    private static class IsInSnowPatch
+    {
+        static bool Prefix(ref bool __result)
+        {
+            if(IsInCavesStateManager.IsInCaves == true)
+            {
+                __result = false;
+                return false;
+            }
+            return true;
+        }
+    }
+
     //Main IsInCaves Patch
 
     [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
@@ -197,6 +213,7 @@ public class AllowBuildInCaves : SonsMod
         {
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.EnterCave();
+            BlueFix();
         }
     }
 
@@ -211,6 +228,7 @@ public class AllowBuildInCaves : SonsMod
         {
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.ExitCave();
+            UndoBlueFix();
         }
     }
 
@@ -444,5 +462,23 @@ public class AllowBuildInCaves : SonsMod
         EntranceManagerGroupFix("CaveEExternal");
 
         DestroyLuxuryEntrance("CaveEExternal");
+    }
+
+    public static void BlueFix()
+    {
+        if(!IsInCavesStateManager.ApplyBlueFix) {
+            UndoBlueFix();
+            return;
+        }
+
+        Sons.PostProcessing.PostProcessingManager.DeactivateColorGrade();
+        Sons.PostProcessing.PostProcessingManager.ActivateColorGrade("City");
+    }
+
+    public static void UndoBlueFix()
+    {
+        Sons.PostProcessing.PostProcessingManager.DeactivateColorGrade();
+        var colorGrade = GameSettingsManager.GetSetting("Graphics.ColorGrade", "Default");
+        Sons.PostProcessing.PostProcessingManager.ActivateColorGrade(colorGrade.Replace(" ", ""));
     }
 }

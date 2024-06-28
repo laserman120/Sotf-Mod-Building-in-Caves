@@ -34,6 +34,9 @@
         <Reference Include="Sons.Environment">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Environment.dll</HintPath>
         </Reference>
+        <Reference Include="Sons.PostProcessing">
+          <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.PostProcessing.dll</HintPath>
+        </Reference>
         <Reference Include="Sons.Settings">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Settings.dll</HintPath>
         </Reference>

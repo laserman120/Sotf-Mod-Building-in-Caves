@@ -8,6 +8,7 @@ public static class Config
     public static ConfigCategory Category { get; private set; }
     public static ConfigEntry<bool> DontOpenCaves { get; private set; }
     public static ConfigEntry<bool> GPSLoseSignal { get; private set; }
+    public static ConfigEntry<bool> BlueFix { get; private set; }
 
     //public static KeybindConfigEntry ToggleKey { get; private set; }
 
@@ -29,23 +30,30 @@ public static class Config
            true,
            "Allow GPS to lose signal",
            "When enabled the GPS will work as usual instead of always showing the map");
-    /*
-        ToggleKey = Category.CreateKeybindEntry(
-        "toggle_key",
-        EInputKey.numpadMinus,
-        "Key to toggle the mod",
-        "Does it matter at this point ffs");
 
-        ToggleKey2 = Category.CreateKeybindEntry(
-        "toggle_key2",
-        EInputKey.numpadMinus,
-        "Key to toggle the mod",
-        "Does it matter at this point ffs");*/
+        BlueFix = Category.CreateEntry(
+           "blue_fix",
+           false,
+           "Switch to City filter when entering Cave (Blue Fix)",
+           "City filter removes the Blue hue inside caves. BlueFix made by TerroDucky.");
+        /*
+            ToggleKey = Category.CreateKeybindEntry(
+            "toggle_key",
+            EInputKey.numpadMinus,
+            "Key to toggle the mod",
+            "Does it matter at this point ffs");
+
+            ToggleKey2 = Category.CreateKeybindEntry(
+            "toggle_key2",
+            EInputKey.numpadMinus,
+            "Key to toggle the mod",
+            "Does it matter at this point ffs");*/
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.
     public static void OnSettingsUiClosed()
     {
         IsInCavesStateManager.GPSShouldLoseSignal = GPSLoseSignal.Value;
+        IsInCavesStateManager.ApplyBlueFix = BlueFix.Value;
     }
 }
