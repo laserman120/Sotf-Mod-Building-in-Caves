@@ -19,6 +19,9 @@
       <Reference Include="Il2Cppmscorlib">
         <HintPath>$(GameDir)\_RedLoader\Game\Il2Cppmscorlib.dll</HintPath>
       </Reference>
+      <Reference Include="Il2CppSystem.Core">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Il2CppSystem.Core.dll</HintPath>
+      </Reference>
       <Reference Include="RedLoader">
         <HintPath>$(GameDir)\_RedLoader\net6\RedLoader.dll</HintPath>
       </Reference>
@@ -30,6 +33,9 @@
         </Reference>
         <Reference Include="Sons.Areas">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Areas.dll</HintPath>
+        </Reference>
+        <Reference Include="Sons.Atmosphere">
+          <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Atmosphere.dll</HintPath>
         </Reference>
         <Reference Include="Sons.Environment">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Environment.dll</HintPath>

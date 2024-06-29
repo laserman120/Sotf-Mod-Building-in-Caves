@@ -9,6 +9,8 @@ public static class Config
     public static ConfigEntry<bool> DontOpenCaves { get; private set; }
     public static ConfigEntry<bool> GPSLoseSignal { get; private set; }
     public static ConfigEntry<bool> BlueFix { get; private set; }
+    public static ConfigEntry<bool> KeepItemsInCutscene { get; private set; }
+    public static ConfigEntry<bool> SnowFix { get; private set; }
 
     //public static KeybindConfigEntry ToggleKey { get; private set; }
 
@@ -36,6 +38,18 @@ public static class Config
            false,
            "Switch to City filter when entering Cave (Blue Fix)",
            "City filter removes the Blue hue inside caves. BlueFix made by TerroDucky.");
+
+        KeepItemsInCutscene = Category.CreateEntry(
+           "keep_items_patch",
+           true,
+           "Keep Logs or Stones when entering Caves or Bunkers",
+           "This will give you the Logs or Stones back when entering a Cave or Bunker through the cutscene");
+
+        SnowFix = Category.CreateEntry(
+           "snow_fix",
+           true,
+           "Disables snow when inside a cave",
+           "Will disable the snow on builds when entering caves");
         /*
             ToggleKey = Category.CreateKeybindEntry(
             "toggle_key",
@@ -55,5 +69,7 @@ public static class Config
     {
         IsInCavesStateManager.GPSShouldLoseSignal = GPSLoseSignal.Value;
         IsInCavesStateManager.ApplyBlueFix = BlueFix.Value;
+        IsInCavesStateManager.AllowItemsDuringAnimation = KeepItemsInCutscene.Value;
+        IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
     }
 }

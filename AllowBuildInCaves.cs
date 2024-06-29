@@ -23,6 +23,9 @@ using static RedLoader.RLog;
 using TheForest.Items.Inventory;
 using TheForest.Items.Special;
 using Sons.Settings;
+using Sons.Atmosphere;
+using Endnight.Extensions;
+using Sons.Player;
 
 namespace AllowBuildInCaves;
 
@@ -32,6 +35,10 @@ public static class IsInCavesStateManager
     public static bool? ChangeIsInCaves { get; set; } = null; // Store the state that will be used in the game
     public static bool GPSShouldLoseSignal { get; set; } = false; // Store the state that will be used in the game
     public static bool ApplyBlueFix { get; set; } = false; // Store the state that will be used in the game
+    public static bool AllowItemsDuringAnimation { get; set; } = false;
+    public static int ItemId { get; set; } = 78;
+    public static int ItemAmount { get; set; } = 1;
+    public static bool ApplySnowFix { get; set; } = false;
 
     // Add methods to update the state when entering/exiting caves
     public static void EnterCave() => IsInCaves = true;
@@ -81,6 +88,8 @@ public class AllowBuildInCaves : SonsMod
         IsInCavesStateManager.GPSShouldLoseSignal = Config.GPSLoseSignal.Value;
         IsInCavesStateManager.ApplyBlueFix = Config.BlueFix.Value;
         if(IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
+        IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
+        IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
         DestroyEntrances();
     }
 
@@ -189,6 +198,21 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    //Wetness fix
+    [HarmonyPatch(typeof(BloodAndColdScreenOverlay), "UpdateWetnessAndRain")]
+    private static class WetnessPatch
+    {
+        static bool Prefix(ref float __result)
+        {
+            if (IsInCavesStateManager.IsInCaves == true)
+            {
+                __result = 0f;
+                return false;
+            }
+            return true;
+        }
+    }
+
     //IsInSnow fix (Honestly dont know what this does)
     [HarmonyPatch(typeof(PlayerStats), "IsInSnow")]
     private static class IsInSnowPatch
@@ -204,6 +228,48 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    //test add patch to cave enter animation
+    [HarmonyPatch(typeof(CaveEntranceCutscene), "OnEnterCaveEntrance")]
+    private static class EnterCutscenePatch
+    {
+        private static void Prefix()
+        {
+            RemoveItemsOnEnter();
+        }
+    }
+
+    [HarmonyPatch(typeof(CaveEntranceCutscene), "FinalizeSequence")]
+    private static class FinishCutscenePatch
+    {
+        private static void Postfix()
+        {
+            AddItemsOnExit();
+        }
+    }
+
+    //Climb up hatch
+    [HarmonyPatch(typeof(ClimbUpHatchTrigger), "ClimbInputReceived")]
+    private static class EnterHatchUpCutscenePatch
+    {
+        private static void Prefix()
+        {
+            RLog.Msg("ClimbInputReceived");
+            RemoveItemsOnEnter();
+            SnowFix(true);
+        }
+    }
+
+    [HarmonyPatch(typeof(ClimbUpHatchTrigger), "Cleanup")]
+    private static class FinishHatchUpCutscenePatch
+    {
+        private static void Postfix()
+        {
+            RLog.Msg("Cleanup");
+            AddItemsOnExit();
+
+        }
+    }
+
     //Main IsInCaves Patch
 
     [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveEnter")]
@@ -214,6 +280,7 @@ public class AllowBuildInCaves : SonsMod
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.EnterCave();
             BlueFix();
+            SnowFix(false);
         }
     }
 
@@ -229,6 +296,7 @@ public class AllowBuildInCaves : SonsMod
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.ExitCave();
             UndoBlueFix();
+            SnowFix(true);
         }
     }
 
@@ -481,4 +549,56 @@ public class AllowBuildInCaves : SonsMod
         var colorGrade = GameSettingsManager.GetSetting("Graphics.ColorGrade", "Default");
         Sons.PostProcessing.PostProcessingManager.ActivateColorGrade(colorGrade.Replace(" ", ""));
     }
+
+    public static void RemoveItemsOnEnter()
+    {
+        if(!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
+        PlayerInventory Inventory = LocalPlayer.Inventory;
+        int itemId = Inventory._HeldOnlyItemController_k__BackingField.HeldItem?._itemID ?? 0;
+        bool hasLogs = false;
+        bool hasStone = false;
+        if (itemId == 78) { hasLogs = true; }
+        if (itemId == 640) { hasStone = true; }
+        if (hasLogs || hasStone)
+        {
+            IsInCavesStateManager.ItemId = itemId;
+            IsInCavesStateManager.ItemAmount = Inventory.AmountOf(itemId, false, false);
+            for (int i = 0; i < IsInCavesStateManager.ItemAmount; i++)
+            {
+                Inventory.HeldOnlyItemController.PutDown(false, false, false, null, 0, 0);
+            }
+        }
+    }
+
+    public static void AddItemsOnExit()
+    {
+        if (!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
+        PlayerInventory Inventory = LocalPlayer.Inventory;
+        Inventory.StashRightHandItem(false, false, true);
+
+        for (int i = 0; i < IsInCavesStateManager.ItemAmount; i++)
+        {
+            Inventory.AddItem(IsInCavesStateManager.ItemId, 1, false, false, null);
+        }
+        IsInCavesStateManager.ItemId = 0;
+        IsInCavesStateManager.ItemAmount = 0;
+    }
+
+    public static void SnowFix(bool EnableSnow)
+    {
+        if (!IsInCavesStateManager.ApplySnowFix) { return; }
+        SeasonsManager SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
+        if(SeasonManager._activeSeason == SeasonsManager.Season.Winter)
+        {
+            if (EnableSnow)
+            {
+                Shader.SetGlobalFloat("_Sons_SnowAmount", 1);
+            }
+            else
+            {
+                Shader.SetGlobalFloat("_Sons_SnowAmount", 0);
+            }
+        }
+    }
 }
+
