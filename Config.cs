@@ -50,18 +50,12 @@ public static class Config
            true,
            "Disables snow when inside a cave",
            "Will disable the snow on builds when entering caves");
-        /*
-            ToggleKey = Category.CreateKeybindEntry(
-            "toggle_key",
-            EInputKey.numpadMinus,
-            "Key to toggle the mod",
-            "Does it matter at this point ffs");
-
-            ToggleKey2 = Category.CreateKeybindEntry(
-            "toggle_key2",
-            EInputKey.numpadMinus,
-            "Key to toggle the mod",
-            "Does it matter at this point ffs");*/
+        
+            //ToggleKey = Category.CreateKeybindEntry(
+            //"toggle_key",
+            //EInputKey.numpadMinus,
+           // "Key to toggle the mod",
+            //"Does it matter at this point ffs");
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.

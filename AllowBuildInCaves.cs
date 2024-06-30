@@ -26,6 +26,8 @@ using Sons.Settings;
 using Sons.Atmosphere;
 using Endnight.Extensions;
 using Sons.Player;
+using TheForest.World;
+using System.Collections;
 
 namespace AllowBuildInCaves;
 
@@ -36,9 +38,11 @@ public static class IsInCavesStateManager
     public static bool GPSShouldLoseSignal { get; set; } = false; // Store the state that will be used in the game
     public static bool ApplyBlueFix { get; set; } = false; // Store the state that will be used in the game
     public static bool AllowItemsDuringAnimation { get; set; } = false;
-    public static int ItemId { get; set; } = 78;
-    public static int ItemAmount { get; set; } = 1;
+    public static int ItemId { get; set; } = 0;
+    public static int ItemAmount { get; set; } = 0;
+    public static bool TryAddItems { get; set; } = false;
     public static bool ApplySnowFix { get; set; } = false;
+    
 
     // Add methods to update the state when entering/exiting caves
     public static void EnterCave() => IsInCaves = true;
@@ -48,7 +52,6 @@ public class AllowBuildInCaves : SonsMod
 {
     public AllowBuildInCaves()
     {
-
         // Uncomment any of these if you need a method to run on a specific update loop.
         //OnUpdateCallback = MyUpdateMethod;
         //OnLateUpdateCallback = MyLateUpdateMethod;
@@ -56,7 +59,7 @@ public class AllowBuildInCaves : SonsMod
         //OnGUICallback = MyGUIMethod;
 
         // Uncomment this to automatically apply harmony patches in your assembly.
-        HarmonyPatchAll = true; 
+        HarmonyPatchAll = true;
     }
 
     protected override void OnInitializeMod()
@@ -73,7 +76,7 @@ public class AllowBuildInCaves : SonsMod
 
         // Add in-game settings ui for your mod.
         SettingsRegistry.CreateSettings(this, null, typeof(Config));
-        
+
         // Add a keybind to toggle the mod
 
         //Config.ToggleKey.Notify(MainToggle);
@@ -87,9 +90,10 @@ public class AllowBuildInCaves : SonsMod
         //This is the manager that handles all construction in the game.
         IsInCavesStateManager.GPSShouldLoseSignal = Config.GPSLoseSignal.Value;
         IsInCavesStateManager.ApplyBlueFix = Config.BlueFix.Value;
-        if(IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
+        if (IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
         IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
+        if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false); }
         DestroyEntrances();
     }
 
@@ -162,7 +166,8 @@ public class AllowBuildInCaves : SonsMod
             if (IsInCavesStateManager.IsInCaves == true)
             {
                 return false;
-            } else
+            }
+            else
             {
                 return true;
             }
@@ -175,7 +180,7 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Postfix(PlayerAnimatorControl __instance)
         {
-            if(__instance._divingStarted && IsInCavesStateManager.IsInCaves == true)
+            if (__instance._divingStarted && IsInCavesStateManager.IsInCaves == true)
             {
                 if (LocalPlayer.Inventory.Owns(444))
                 {
@@ -191,7 +196,7 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Postfix(Sons.Inventory.InventoryLedStripManager __instance)
         {
-            if(IsInCavesStateManager.IsInCaves == true && !__instance._manuallyTriggeredPowerState && !__instance._isPowerOn)
+            if (IsInCavesStateManager.IsInCaves == true && !__instance._manuallyTriggeredPowerState && !__instance._isPowerOn)
             {
                 __instance.PowerOn(true);
             }
@@ -202,14 +207,46 @@ public class AllowBuildInCaves : SonsMod
     [HarmonyPatch(typeof(BloodAndColdScreenOverlay), "UpdateWetnessAndRain")]
     private static class WetnessPatch
     {
-        static bool Prefix(ref float __result)
+        static bool Prefix(BloodAndColdScreenOverlay __instance)
         {
             if (IsInCavesStateManager.IsInCaves == true)
             {
-                __result = 0f;
+                __instance._bloodColdController.rainAmount.value = 0f;
                 return false;
             }
             return true;
+        }
+    }
+
+    //Weather FIx
+    [HarmonyPatch(typeof(WeatherSystem), "CheckInCave")]
+    private static class WeatherSystemPatch
+    {
+        private static bool Prefix()
+        {
+            RainTypes rainTypes = WeatherSystem.GetRainTypes();
+            if (rainTypes == null)
+            {
+                return false;
+            }
+            GameObject caveFilter = rainTypes.CaveFilter;
+            if (caveFilter == null)
+            {
+                return false;
+            }
+            if (IsInCavesStateManager.IsInCaves || (LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == PlayerInventory.PlayerViews.PlaneCrash))
+            {
+                if (rainTypes.CaveFilter.activeSelf)
+                {
+                    rainTypes.CaveFilter.SetActive(false);
+                    return false;
+                }
+            }
+            else if (!caveFilter.activeSelf)
+            {
+                caveFilter.SetActive(true);
+            }
+            return false;
         }
     }
 
@@ -219,7 +256,7 @@ public class AllowBuildInCaves : SonsMod
     {
         static bool Prefix(ref bool __result)
         {
-            if(IsInCavesStateManager.IsInCaves == true)
+            if (IsInCavesStateManager.IsInCaves == true)
             {
                 __result = false;
                 return false;
@@ -253,20 +290,17 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Prefix()
         {
-            RLog.Msg("ClimbInputReceived");
             RemoveItemsOnEnter();
             SnowFix(true);
         }
     }
 
-    [HarmonyPatch(typeof(ClimbUpHatchTrigger), "Cleanup")]
+    [HarmonyPatch(typeof(Cutscene), "Cleanup")]
     private static class FinishHatchUpCutscenePatch
     {
         private static void Postfix()
         {
-            RLog.Msg("Cleanup");
             AddItemsOnExit();
-
         }
     }
 
@@ -357,7 +391,7 @@ public class AllowBuildInCaves : SonsMod
         {
             if (t.name.StartsWith("CaveEntrance") || t.name.StartsWith("CaveEntranceShimmy") || t.name.StartsWith("CaveExitShimmy"))
             {
-                if(t.name.EndsWith("exitShimmy")) { continue; }
+                if (t.name.EndsWith("exitShimmy")) { continue; }
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
                 foreach (Transform t2 in CaveEntranceTransforms)
                 {
@@ -379,8 +413,8 @@ public class AllowBuildInCaves : SonsMod
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
                 foreach (Transform t2 in CaveEntranceTransforms)
                 {
-                    if (t2.name == "AmbientGroup") 
-                    { 
+                    if (t2.name == "AmbientGroup")
+                    {
                         List<Transform> CaveEntranceTransforms2 = t2.gameObject.GetChildren();
                         foreach (Transform t3 in CaveEntranceTransforms2)
                         {
@@ -398,25 +432,25 @@ public class AllowBuildInCaves : SonsMod
         List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
         foreach (Transform t in CaveExternalTransforms)
         {
-            if (!t.name.StartsWith("Lighting")) { continue;}    
+            if (!t.name.StartsWith("Lighting")) { continue; }
             List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
             foreach (Transform t2 in CaveEntranceTransforms)
             {
-                if (t2.name != "InternalLightingGrp") { continue;}
-                    
+                if (t2.name != "InternalLightingGrp") { continue; }
+
                 List<Transform> CaveEntranceTransforms2 = t2.gameObject.GetChildren();
                 foreach (Transform t3 in CaveEntranceTransforms2)
                 {
-                    if (t3.name != "InternalLighting") { continue;}
+                    if (t3.name != "InternalLighting") { continue; }
 
                     List<Transform> CaveEntranceTransforms3 = t3.gameObject.GetChildren();
                     foreach (Transform t4 in CaveEntranceTransforms3)
                     {
                         if (t4.name == "AmbientOverride") { GameObject.Destroy(t4.gameObject); }
-                    }             
+                    }
                 }
             }
-            
+
         }
     }
 
@@ -440,7 +474,7 @@ public class AllowBuildInCaves : SonsMod
             List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
             foreach (Transform t2 in CaveEntranceTransforms)
             {
-                if (t2.name.StartsWith("BodyShelving") || t2.name.StartsWith("CaveEntrance")) 
+                if (t2.name.StartsWith("BodyShelving") || t2.name.StartsWith("CaveEntrance"))
                 {
                     List<Transform> CaveEntranceTransforms2 = t2.gameObject.GetChildren();
                     foreach (Transform t3 in CaveEntranceTransforms2)
@@ -459,19 +493,20 @@ public class AllowBuildInCaves : SonsMod
         foreach (Transform t in EntranceManagerGroupTransforms)
         {
             //Cave C Fix
-            if(t.name.EndsWith("CaveEntrance") || t.name.EndsWith("Cavexit"))
+            if (t.name.EndsWith("CaveEntrance") || t.name.EndsWith("Cavexit"))
             {
                 //Fetch the component Endnight.Utilities.DirectionalTrigger
                 DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
-                if(dt != null) { dt._useInnerBoundary = true; }
+                if (dt != null) { dt._useInnerBoundary = true; }
                 if (t.name.EndsWith("Cavexit"))
                 {
                     t.localScale = new Vector3(0.1f, 0.7f, 0.5f);
-                } else
+                }
+                else
                 {
                     t.localScale = new Vector3(0.06f, 0.3f, 0.3f);
                 }
-                
+
             }
 
             //Cave B Fix
@@ -488,7 +523,7 @@ public class AllowBuildInCaves : SonsMod
             {
                 //Fetch the component Endnight.Utilities.DirectionalTrigger
                 DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
-                if(dt != null) { dt._useInnerBoundary = true; }
+                if (dt != null) { dt._useInnerBoundary = true; }
             }
 
         }
@@ -516,7 +551,7 @@ public class AllowBuildInCaves : SonsMod
 
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> {"CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> { "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
@@ -534,7 +569,8 @@ public class AllowBuildInCaves : SonsMod
 
     public static void BlueFix()
     {
-        if(!IsInCavesStateManager.ApplyBlueFix) {
+        if (!IsInCavesStateManager.ApplyBlueFix)
+        {
             UndoBlueFix();
             return;
         }
@@ -552,7 +588,7 @@ public class AllowBuildInCaves : SonsMod
 
     public static void RemoveItemsOnEnter()
     {
-        if(!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
+        if (!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
         PlayerInventory Inventory = LocalPlayer.Inventory;
         int itemId = Inventory._HeldOnlyItemController_k__BackingField.HeldItem?._itemID ?? 0;
         bool hasLogs = false;
@@ -572,23 +608,48 @@ public class AllowBuildInCaves : SonsMod
 
     public static void AddItemsOnExit()
     {
-        if (!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
-        PlayerInventory Inventory = LocalPlayer.Inventory;
-        Inventory.StashRightHandItem(false, false, true);
+        IsInCavesStateManager.TryAddItems = true;
+        AddItemRoutine().RunCoro();
+    }
 
-        for (int i = 0; i < IsInCavesStateManager.ItemAmount; i++)
+    private static IEnumerator AddItemRoutine()
+    {
+        while (IsInCavesStateManager.TryAddItems) // Keep trying until successful or stopped manually
         {
-            Inventory.AddItem(IsInCavesStateManager.ItemId, 1, false, false, null);
+            if (!IsInCavesStateManager.AllowItemsDuringAnimation)
+            {
+                IsInCavesStateManager.TryAddItems = false;
+                yield break;
+            };
+            if (IsInCavesStateManager.ItemId == 0)
+            {
+                IsInCavesStateManager.TryAddItems = false;
+                yield break;
+            };
+
+            PlayerInventory inventory = LocalPlayer.Inventory;
+            inventory.StashRightHandItem(false, false, true);
+
+            for (int i = inventory.AmountOf(IsInCavesStateManager.ItemId, false, false); i < IsInCavesStateManager.ItemAmount; i++)
+            {
+                inventory.AddItem(IsInCavesStateManager.ItemId, 1, false, false, null);
+            }
+
+            if (IsInCavesStateManager.ItemAmount == inventory.AmountOf(IsInCavesStateManager.ItemId, false, false))
+            {
+                IsInCavesStateManager.TryAddItems = false; // Stop the coroutine when successful
+                yield break;
+            }
+
+            yield return new WaitForSeconds(0.2f); // Wait for 0.2 seconds before retrying
         }
-        IsInCavesStateManager.ItemId = 0;
-        IsInCavesStateManager.ItemAmount = 0;
     }
 
     public static void SnowFix(bool EnableSnow)
     {
         if (!IsInCavesStateManager.ApplySnowFix) { return; }
         SeasonsManager SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
-        if(SeasonManager._activeSeason == SeasonsManager.Season.Winter)
+        if (SeasonManager._activeSeason == SeasonsManager.Season.Winter)
         {
             if (EnableSnow)
             {

@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/ToniMacaroni/RedLoader/main/MetadataSchema.json",
   "id": "AllowBuildInCaves",
   "author": "GLaD0S",
-  "version": "1.0.5",
+  "version": "1.0.8",
   "description": "Allows building in caves and removes parts of cave entrances",
   "gameVersion": "1.0.0",
   "type": "Mod",

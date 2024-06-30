@@ -31,6 +31,9 @@
         <Reference Include="Endnight">
             <HintPath>$(GameDir)\_RedLoader\Game\Endnight.dll</HintPath>
         </Reference>
+        <Reference Include="Sons.Ai.Utilities">
+          <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Ai.Utilities.dll</HintPath>
+        </Reference>
         <Reference Include="Sons.Areas">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Areas.dll</HintPath>
         </Reference>
@@ -43,6 +46,9 @@
         <Reference Include="Sons.PostProcessing">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.PostProcessing.dll</HintPath>
         </Reference>
+        <Reference Include="Sons.Rendering">
+          <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Rendering.dll</HintPath>
+        </Reference>
         <Reference Include="Sons.Settings">
           <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Sons.Settings.dll</HintPath>
         </Reference>
@@ -51,6 +57,12 @@
       </Reference>
       <Reference Include="TheForest.Utils">
         <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\TheForest.Utils.dll</HintPath>
+      </Reference>
+      <Reference Include="Unity.RenderPipelines.Core.Runtime">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
+      </Reference>
+      <Reference Include="Unity.RenderPipelines.HighDefinition.Config.Runtime">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Unity.RenderPipelines.HighDefinition.Config.Runtime.dll</HintPath>
       </Reference>
       <Reference Include="UnityEngine">
         <HintPath>$(GameDir)\_RedLoader\Game\UnityEngine.dll</HintPath>
