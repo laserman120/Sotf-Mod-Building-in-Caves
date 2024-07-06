@@ -28,6 +28,7 @@ using Endnight.Extensions;
 using Sons.Player;
 using TheForest.World;
 using System.Collections;
+using JetAnnotations;
 
 namespace AllowBuildInCaves;
 
@@ -93,7 +94,7 @@ public class AllowBuildInCaves : SonsMod
         if (IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
         IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
-        if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false); }
+        if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false, false); }
         DestroyEntrances();
     }
 
@@ -291,7 +292,7 @@ public class AllowBuildInCaves : SonsMod
         private static void Prefix()
         {
             RemoveItemsOnEnter();
-            SnowFix(true);
+            SnowFix(true, false);
         }
     }
 
@@ -314,7 +315,7 @@ public class AllowBuildInCaves : SonsMod
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.EnterCave();
             BlueFix();
-            SnowFix(false);
+            SnowFix(false, false);
         }
     }
 
@@ -330,7 +331,7 @@ public class AllowBuildInCaves : SonsMod
             CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.ExitCave();
             UndoBlueFix();
-            SnowFix(true);
+            SnowFix(true, false);
         }
     }
 
@@ -645,9 +646,9 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
-    public static void SnowFix(bool EnableSnow)
+    public static void SnowFix(bool EnableSnow, bool force)
     {
-        if (!IsInCavesStateManager.ApplySnowFix) { return; }
+        if (!force && !IsInCavesStateManager.ApplySnowFix) { return; }
         SeasonsManager SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
         if (SeasonManager._activeSeason == SeasonsManager.Season.Winter)
         {

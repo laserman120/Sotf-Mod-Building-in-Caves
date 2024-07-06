@@ -14,9 +14,6 @@ public static class Config
 
     //public static KeybindConfigEntry ToggleKey { get; private set; }
 
-    //public static KeybindConfigEntry ToggleKey2 { get; private set; }
-    //public static ConfigEntry<bool> SomeEntry { get; private set; }
-
     public static void Init()
     {
         Category = ConfigSystem.CreateFileCategory("AllowBuildInCaves", "AllowBuildInCaves", "AllowBuildInCaves.cfg");
@@ -53,7 +50,7 @@ public static class Config
         
             //ToggleKey = Category.CreateKeybindEntry(
             //"toggle_key",
-            //EInputKey.numpadMinus,
+           //EInputKey.numpadMinus,
            // "Key to toggle the mod",
             //"Does it matter at this point ffs");
     }
@@ -65,5 +62,8 @@ public static class Config
         IsInCavesStateManager.ApplyBlueFix = BlueFix.Value;
         IsInCavesStateManager.AllowItemsDuringAnimation = KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
+
+        if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
+        if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
     }
 }
