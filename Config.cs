@@ -11,7 +11,7 @@ public static class Config
     public static ConfigEntry<bool> BlueFix { get; private set; }
     public static ConfigEntry<bool> KeepItemsInCutscene { get; private set; }
     public static ConfigEntry<bool> SnowFix { get; private set; }
-
+    public static ConfigEntry<bool> EasyBunkers { get; private set; }
     //public static KeybindConfigEntry ToggleKey { get; private set; }
 
     public static void Init()
@@ -47,12 +47,18 @@ public static class Config
            true,
            "Disables snow when inside a cave",
            "Will disable the snow on builds when entering caves");
-        
-            //ToggleKey = Category.CreateKeybindEntry(
-            //"toggle_key",
-           //EInputKey.numpadMinus,
-           // "Key to toggle the mod",
-            //"Does it matter at this point ffs");
+
+        EasyBunkers = Category.CreateEntry(
+           "easy_bunkers",
+           false,
+           "Easy transportation of logs or stones into bunkers",
+           "Logs or Stones thrown onto a bunker entrance will be teleported inside");
+
+        //ToggleKey = Category.CreateKeybindEntry(
+        //"toggle_key",
+        //EInputKey.numpadMinus,
+        // "Key to toggle the mod",
+        //"Does it matter at this point ffs");
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.
@@ -62,6 +68,7 @@ public static class Config
         IsInCavesStateManager.ApplyBlueFix = BlueFix.Value;
         IsInCavesStateManager.AllowItemsDuringAnimation = KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
+        IsInCavesStateManager.EnableEasyBunkers = EasyBunkers.Value;
 
         if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
         if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }

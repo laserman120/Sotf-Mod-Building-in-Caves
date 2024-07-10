@@ -29,6 +29,7 @@ using Sons.Player;
 using TheForest.World;
 using System.Collections;
 using JetAnnotations;
+using RedLoader.Utils;
 
 namespace AllowBuildInCaves;
 
@@ -43,6 +44,7 @@ public static class IsInCavesStateManager
     public static int ItemAmount { get; set; } = 0;
     public static bool TryAddItems { get; set; } = false;
     public static bool ApplySnowFix { get; set; } = false;
+    public static bool EnableEasyBunkers { get; set; } = false;
     
 
     // Add methods to update the state when entering/exiting caves
@@ -51,6 +53,8 @@ public static class IsInCavesStateManager
 }
 public class AllowBuildInCaves : SonsMod
 {
+    private static SeasonsManager SeasonManager;
+    public static ESonsScene SonsScene;
     public AllowBuildInCaves()
     {
         // Uncomment any of these if you need a method to run on a specific update loop.
@@ -61,6 +65,11 @@ public class AllowBuildInCaves : SonsMod
 
         // Uncomment this to automatically apply harmony patches in your assembly.
         HarmonyPatchAll = true;
+    }
+
+    protected override void OnSonsSceneInitialized(ESonsScene sonsScene)
+    {
+        SonsScene = sonsScene;
     }
 
     protected override void OnInitializeMod()
@@ -79,8 +88,16 @@ public class AllowBuildInCaves : SonsMod
         SettingsRegistry.CreateSettings(this, null, typeof(Config));
 
         // Add a keybind to toggle the mod
+        RLog.Msg(Path.Combine(LoaderEnvironment.ModsDirectory, "pop.mp3"));
+        SoundTools.RegisterSound("TeleportPickupPop", Path.Combine(LoaderEnvironment.ModsDirectory, "AllowBuildInCaves/pop.mp3"), true);
 
         //Config.ToggleKey.Notify(MainToggle);
+    }
+
+    public static void PlaySound(Vector3 pos)
+    {
+        float soundVolume = Sons.Settings.GameSettingsManager.GetSetting("Audio.MasterVolume", 1f);
+        SoundTools.PlaySound("TeleportPickupPop", pos, 35, soundVolume);
     }
 
     protected override void OnGameStart()
@@ -95,7 +112,15 @@ public class AllowBuildInCaves : SonsMod
         IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
         if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false, false); }
+        IsInCavesStateManager.EnableEasyBunkers = Config.EasyBunkers.Value;
+
+        SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
+
         DestroyEntrances();
+        AdjustCellars();
+        AddTriggerComponentToBunkers();
+
+        
     }
 
     //Cave Teleport Fix
@@ -351,18 +376,24 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Prefix()
         {
-            if (IsInCavesStateManager.ChangeIsInCaves == true)
+            if(IsInCavesStateManager.ChangeIsInCaves != null)
             {
-                if (CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
+                if (IsInCavesStateManager.ChangeIsInCaves == true)
                 {
-                    CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
+                    if (CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
+                    {
+                        CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
+                    }
                 }
+                else if (IsInCavesStateManager.ChangeIsInCaves == false)
+                {
+                    CaveEntranceManager._isInCaves = false;
+                    IsInCavesStateManager.ChangeIsInCaves = null;
+                }
+                //Do not execute the rest of the code
+                return;
             }
-            else if (IsInCavesStateManager.ChangeIsInCaves == false)
-            {
-                CaveEntranceManager._isInCaves = false;
-                IsInCavesStateManager.ChangeIsInCaves = null;
-            }
+
         }
     }
 
@@ -532,6 +563,26 @@ public class AllowBuildInCaves : SonsMod
 
     private void DestroyEntrances()
     {
+        if (Config.DontOpenCaves.Value) { return; }
+
+        var caveEntranceNames = new List<string> { "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        //opening cave entrances
+        foreach (var caveEntranceName in caveEntranceNames)
+        {
+            DestroyCaveEntrance(caveEntranceName);
+        }
+        DestroyCaveEntranceCaveBException("CaveBExternal");
+
+        EntranceManagerGroupFix("CaveC_EntranceManagerGroup");
+        EntranceManagerGroupFix("CaveBExternal");
+        EntranceManagerGroupFix("CaveF_External");
+        EntranceManagerGroupFix("CaveEExternal");
+
+        DestroyLuxuryEntrance("CaveEExternal");
+    }
+
+    private void AdjustCellars()
+    {
         //Adjustments to allow building in caves/cellars
         var houseCaveNames = new List<string> { "CaveG_External", "CellarA" };
         var cellarNames = new List<string> { "CellarN", "CellarF", "CellarO", "CellarE", "CellarB", "CellarD", "CellarK", "CellarP", "CellarC", "CellarL", "CellarQ", "CellarM", "CellarH" };
@@ -549,23 +600,39 @@ public class AllowBuildInCaves : SonsMod
         {
             AdjustIceCave(iceCaveName);
         }
+    }
 
-        if (Config.DontOpenCaves.Value) { return; }
-
-        var caveEntranceNames = new List<string> { "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
-        //opening cave entrances
-        foreach (var caveEntranceName in caveEntranceNames)
+    private void AddTriggerComponentToBunkers()
+    {
+        var bunkerNames = new List<String> { "BunkerAExternal", "BunkerBExternal", "BunkerCExternal" };
+        foreach (var bunkerName in bunkerNames)
         {
-            DestroyCaveEntrance(caveEntranceName);
+            GameObject bunker = GameObject.Find(bunkerName);
+            List<Transform> CaveExternalTransforms = bunker.GetChildren();
+            foreach (Transform t in CaveExternalTransforms)
+            {
+                if (t.name.StartsWith("ExtentsTrigger")) 
+                {
+
+                    if(t.gameObject == null) return;
+
+                    t.gameObject.AddComponent<PlayerDetectionTrigger>();
+
+                    GameObject triggerObject = new GameObject("ProximityTrigger");
+                    triggerObject.transform.position = t.position;
+                    triggerObject.transform.rotation = t.rotation;
+                    triggerObject.transform.parent = bunker.transform;
+                    int targetLayer = LayerMask.NameToLayer("Prop");
+                    triggerObject.layer = targetLayer;
+
+                    triggerObject.AddComponent<BunkerTeleportTrigger>();
+
+                }
+                
+            }
+
+            
         }
-        DestroyCaveEntranceCaveBException("CaveBExternal");
-
-        EntranceManagerGroupFix("CaveC_EntranceManagerGroup");
-        EntranceManagerGroupFix("CaveBExternal");
-        EntranceManagerGroupFix("CaveF_External");
-        EntranceManagerGroupFix("CaveEExternal");
-
-        DestroyLuxuryEntrance("CaveEExternal");
     }
 
     public static void BlueFix()
@@ -589,13 +656,22 @@ public class AllowBuildInCaves : SonsMod
 
     public static void RemoveItemsOnEnter()
     {
+        IsInCavesStateManager.TryAddItems = true;
         if (!IsInCavesStateManager.AllowItemsDuringAnimation) { return; }
+        
         PlayerInventory Inventory = LocalPlayer.Inventory;
         int itemId = Inventory._HeldOnlyItemController_k__BackingField.HeldItem?._itemID ?? 0;
         bool hasLogs = false;
         bool hasStone = false;
+        bool hasInfiniteHack = Inventory._HeldOnlyItemController_k__BackingField.InfiniteHack;
         if (itemId == 78) { hasLogs = true; }
         if (itemId == 640) { hasStone = true; }
+
+        if(hasInfiniteHack)
+        {
+            Inventory._HeldOnlyItemController_k__BackingField.InfiniteHack = false;
+        }
+
         if (hasLogs || hasStone)
         {
             IsInCavesStateManager.ItemId = itemId;
@@ -605,11 +681,16 @@ public class AllowBuildInCaves : SonsMod
                 Inventory.HeldOnlyItemController.PutDown(false, false, false, null, 0, 0);
             }
         }
+
+        if(hasInfiniteHack)
+        {
+            Inventory._HeldOnlyItemController_k__BackingField.InfiniteHack = true;
+        }
     }
 
     public static void AddItemsOnExit()
     {
-        IsInCavesStateManager.TryAddItems = true;
+        if (!IsInCavesStateManager.AllowItemsDuringAnimation) { IsInCavesStateManager.TryAddItems = false; return; }
         AddItemRoutine().RunCoro();
     }
 
@@ -639,6 +720,8 @@ public class AllowBuildInCaves : SonsMod
             if (IsInCavesStateManager.ItemAmount == inventory.AmountOf(IsInCavesStateManager.ItemId, false, false))
             {
                 IsInCavesStateManager.TryAddItems = false; // Stop the coroutine when successful
+                IsInCavesStateManager.ItemId = 0;
+                IsInCavesStateManager.ItemAmount = 0;
                 yield break;
             }
 
@@ -649,7 +732,7 @@ public class AllowBuildInCaves : SonsMod
     public static void SnowFix(bool EnableSnow, bool force)
     {
         if (!force && !IsInCavesStateManager.ApplySnowFix) { return; }
-        SeasonsManager SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
+        if(SeasonManager == null) { return; }
         if (SeasonManager._activeSeason == SeasonsManager.Season.Winter)
         {
             if (EnableSnow)
