@@ -45,6 +45,8 @@ public static class IsInCavesStateManager
     public static bool TryAddItems { get; set; } = false;
     public static bool ApplySnowFix { get; set; } = false;
     public static bool EnableEasyBunkers { get; set; } = false;
+
+    public static bool RockRemoverCaveBRunning { get; set; } = false;
     
 
     // Add methods to update the state when entering/exiting caves
@@ -415,7 +417,7 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
-    private void DestroyCaveEntranceCaveBException(string CaveName)
+    /*private void DestroyCaveEntranceCaveBException(string CaveName)
     {
         GameObject CaveExternal = GameObject.Find(CaveName);
         List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
@@ -431,7 +433,7 @@ public class AllowBuildInCaves : SonsMod
                 }
             }
         }
-    }
+    }*/
 
     private void AdjustHouseCave(string CaveName)
     {
@@ -565,13 +567,13 @@ public class AllowBuildInCaves : SonsMod
     {
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> { "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> { "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
             DestroyCaveEntrance(caveEntranceName);
         }
-        DestroyCaveEntranceCaveBException("CaveBExternal");
+        //DestroyCaveEntranceCaveBException("CaveBExternal");
 
         EntranceManagerGroupFix("CaveC_EntranceManagerGroup");
         EntranceManagerGroupFix("CaveBExternal");
@@ -579,6 +581,8 @@ public class AllowBuildInCaves : SonsMod
         EntranceManagerGroupFix("CaveEExternal");
 
         DestroyLuxuryEntrance("CaveEExternal");
+
+        CaveBExitTriggerCreation();
     }
 
     private void AdjustCellars()
@@ -633,6 +637,26 @@ public class AllowBuildInCaves : SonsMod
 
             
         }
+    }
+
+    private void CaveBExitTriggerCreation()
+    {
+        Vector3 triggerPosition = new Vector3(-1230.998f, 142.2489f, -300.5959f);
+        GameObject triggerObject = new GameObject("CaveBExitFixTrigger");
+
+        triggerObject.transform.position = triggerPosition;
+        triggerObject.AddComponent<CaveBExitTrigger>();
+        RLog.Msg("CaveBExitTrigger created");
+
+        GameObject rockRemoverTrigger = new GameObject("RockRemoverTrigger");
+        int targetLayer = LayerMask.NameToLayer("BasicCollider");
+        rockRemoverTrigger.layer = targetLayer;
+        rockRemoverTrigger.transform.position = triggerPosition;
+        rockRemoverTrigger.AddComponent<RockRemoverTrigger>();
+        rockRemoverTrigger.AddComponent<RockRemoverPlayerDetectionTrigger>();
+        RLog.Msg("RockRemoverTrigger created");
+
+
     }
 
     public static void BlueFix()

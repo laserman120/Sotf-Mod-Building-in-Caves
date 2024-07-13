@@ -183,13 +183,10 @@ namespace AllowBuildInCaves
         {
             if (!Config.EasyBunkers.Value) return;
             if (!climbInGroup.active) return;
-            Transform playerTransform = other.transform;
-            while (playerTransform != null && !playerTransform.name.Contains("LocalPlayer"))
-            {
-                playerTransform = playerTransform.parent;
-            }
 
-            if (playerTransform != null)
+            Transform playerTransform = other.transform;
+
+            if (playerTransform.name.Contains("LocalPlayer"))
             {
                 isPlayerNearby = true;
             }
@@ -203,12 +200,8 @@ namespace AllowBuildInCaves
 
 
             Transform playerTransform = other.transform;
-            while (playerTransform != null && !playerTransform.name.Contains("LocalPlayer"))
-            {
-                playerTransform = playerTransform.parent;
-            }
 
-            if (playerTransform != null)
+            if (playerTransform.name.Contains("LocalPlayer"))
             {
                 isPlayerNearby = false;
             }
