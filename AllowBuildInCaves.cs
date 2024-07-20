@@ -30,6 +30,8 @@ using TheForest.World;
 using System.Collections;
 using JetAnnotations;
 using RedLoader.Utils;
+using Endnight.Types;
+using Sons.Crafting.Structures;
 
 namespace AllowBuildInCaves;
 
@@ -45,8 +47,8 @@ public static class IsInCavesStateManager
     public static bool TryAddItems { get; set; } = false;
     public static bool ApplySnowFix { get; set; } = false;
     public static bool EnableEasyBunkers { get; set; } = false;
-
     public static bool RockRemoverCaveBRunning { get; set; } = false;
+    public static bool ItemCollectUIFix { get; set; } = false;
     
 
     // Add methods to update the state when entering/exiting caves
@@ -115,14 +117,13 @@ public class AllowBuildInCaves : SonsMod
         IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
         if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false, false); }
         IsInCavesStateManager.EnableEasyBunkers = Config.EasyBunkers.Value;
+        IsInCavesStateManager.ItemCollectUIFix = Config.ItemCollectUIFix.Value;
 
         SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
 
         DestroyEntrances();
         AdjustCellars();
         AddTriggerComponentToBunkers();
-
-        
     }
 
     //Cave Teleport Fix
@@ -227,6 +228,127 @@ public class AllowBuildInCaves : SonsMod
             if (IsInCavesStateManager.IsInCaves == true && !__instance._manuallyTriggeredPowerState && !__instance._isPowerOn)
             {
                 __instance.PowerOn(true);
+            }
+        }
+    }
+
+    //Proximity trigger Fix
+    [HarmonyPatch(typeof(TheForest.SerializableTaskSystem.ProximityCondition), "IsWithinRangeOfTarget")]
+    private static class IsWithinRangeOfTargetSerializableFix
+    {
+        private static bool Prefix(TheForest.SerializableTaskSystem.ProximityCondition __instance, ref bool __result)
+        {
+            if (__instance._inCaveOnly && !IsInCavesStateManager.IsInCaves)
+            {
+                __result = false;
+                return false;
+            }
+            if (__instance._use2dDistance)
+            {
+                __result = Vector2.Distance(new Vector2(__instance._targetObject.position.x, __instance._targetObject.position.z), new Vector2(LocalPlayer.Transform.position.x, LocalPlayer.Transform.position.z)) < __instance._distance;
+                return false;
+            }
+            __result = Vector3.Distance(__instance._targetObject.position, LocalPlayer.Transform.position) < __instance._distance;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(TheForest.TaskSystem.ProximityCondition), "IsWithinRangeOfTarget")]
+    private static class IsWithinRangeOfTargetFix
+    {
+        private static bool Prefix(TheForest.TaskSystem.ProximityCondition __instance, ref bool __result)
+        {
+            if (!LocalPlayer.Transform)
+            {
+                __result = false;
+                return false;
+            }
+            if (__instance._inCaveOnly && !IsInCavesStateManager.IsInCaves)
+            {
+                __result = false;
+                RLog.Msg("returned false");
+                return false;
+            }
+            if (__instance._use2dDistance)
+            {
+                __result = Vector2.Distance(new Vector2(__instance._targetObject.position.x, __instance._targetObject.position.z), new Vector2(LocalPlayer.Transform.position.x, LocalPlayer.Transform.position.z)) < __instance._distance;
+                return false;
+            }
+            __result = Vector3.Distance(__instance._targetObject.position, LocalPlayer.Transform.position) < __instance._distance;
+            return false;
+        }
+    }
+
+    //Gather Items UI Fix
+    //Very aggressive and not very efficient, but it works
+    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "Update")] 
+    private static class StructureCraftingSystemFix
+    {
+        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                if (IsInCavesStateManager.ChangeIsInCaves == null)
+                {
+                    IsInCavesStateManager.ChangeIsInCaves = true;
+                }
+            }
+        }
+
+        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                IsInCavesStateManager.ChangeIsInCaves = false;
+                HudGui.Instance.ClearAllRequiredCollectionCounts();
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "UpdateRequiredCountUIForAllItems")]
+    private static class StructureCraftingSystemFix2
+    {
+        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                if (IsInCavesStateManager.ChangeIsInCaves == null)
+                {
+                    IsInCavesStateManager.ChangeIsInCaves = true;
+                }
+            }
+        }
+
+        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                IsInCavesStateManager.ChangeIsInCaves = false;
+                HudGui.Instance.ClearAllRequiredCollectionCounts();
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "RefreshRequiredItemsUi")]
+    private static class StructureCraftingSystemFix3
+    {
+        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                if (IsInCavesStateManager.ChangeIsInCaves == null)
+                {
+                    IsInCavesStateManager.ChangeIsInCaves = true;
+                }
+            }
+        }
+
+        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        {
+            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
+            {
+                IsInCavesStateManager.ChangeIsInCaves = false;
+                HudGui.Instance.ClearAllRequiredCollectionCounts();
             }
         }
     }
@@ -359,6 +481,7 @@ public class AllowBuildInCaves : SonsMod
             IsInCavesStateManager.ExitCave();
             UndoBlueFix();
             SnowFix(true, false);
+            FixCollectUI();
         }
     }
 
@@ -567,7 +690,7 @@ public class AllowBuildInCaves : SonsMod
     {
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> { "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> { "CaveAExternal", "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
@@ -767,6 +890,15 @@ public class AllowBuildInCaves : SonsMod
             {
                 Shader.SetGlobalFloat("_Sons_SnowAmount", 0);
             }
+        }
+    }
+
+    public static void FixCollectUI()
+    {
+        if (IsInCavesStateManager.ItemCollectUIFix)
+        {
+            StructureCraftingSystem structureCraftingSystem = StructureCraftingSystem._instance;
+            structureCraftingSystem.RefreshRequiredItemsUi();
         }
     }
 }
