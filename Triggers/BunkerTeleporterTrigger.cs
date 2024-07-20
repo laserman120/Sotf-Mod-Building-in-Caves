@@ -32,7 +32,7 @@ using JetAnnotations;
 using UnityEngine.SceneManagement;
 using Endnight.Physics;
 
-namespace AllowBuildInCaves
+namespace AllowBuildInCaves.Triggers
 {
     [RegisterTypeInIl2Cpp]
     public class BunkerTeleportTrigger : MonoBehaviour
@@ -53,7 +53,7 @@ namespace AllowBuildInCaves
             triggerCollider.size = size;
 
             // Add SphereCollider for proximity detection
-          
+
 
             GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
 
@@ -113,7 +113,7 @@ namespace AllowBuildInCaves
             if (triggerCollider != null)
             {
                 triggerCollider.size = newSize;
-                RLog.Msg("Trigger size set to: " + newSize);
+                Msg("Trigger size set to: " + newSize);
             }
         }
 
@@ -212,7 +212,7 @@ namespace AllowBuildInCaves
             if (proximityCollider != null)
             {
                 proximityCollider.radius = newSize;
-                RLog.Msg("proximity radius set to: " + newSize);
+                Msg("proximity radius set to: " + newSize);
             }
         }
 

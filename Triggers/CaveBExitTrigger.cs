@@ -32,7 +32,7 @@ using JetAnnotations;
 using UnityEngine.SceneManagement;
 using Endnight.Physics;
 
-namespace AllowBuildInCaves
+namespace AllowBuildInCaves.Triggers
 {
     [RegisterTypeInIl2Cpp]
     public class CaveBExitTrigger : MonoBehaviour
@@ -54,13 +54,13 @@ namespace AllowBuildInCaves
 
             if (playerTransform.name.Contains("LocalPlayer"))
             {
-                RLog.Warning("Player found");
+                Warning("Player found");
                 CaveBCollision = GameObject.Find("CaveBCollision");
                 if (CaveBCollision == null) return;
 
                 GameObject CaveBCollisionAddressable = CaveBCollision.transform.Find("CaveBCollisionAddressable(Clone)").gameObject;
                 if (CaveBCollisionAddressable == null) return;
-                    
+
                 GameObject CaveCollisionCliffsD = CaveBCollisionAddressable.transform.Find("CaveCollisionCliffsD").gameObject;
                 if (CaveCollisionCliffsD == null) return;
 
@@ -92,7 +92,7 @@ namespace AllowBuildInCaves
             if (triggerCollider != null)
             {
                 triggerCollider.size = newSize;
-                RLog.Msg("Trigger size set to: " + newSize);
+                Msg("Trigger size set to: " + newSize);
             }
         }
 

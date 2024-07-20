@@ -32,6 +32,7 @@ using JetAnnotations;
 using RedLoader.Utils;
 using Endnight.Types;
 using Sons.Crafting.Structures;
+using AllowBuildInCaves.Triggers;
 
 namespace AllowBuildInCaves;
 
@@ -540,24 +541,6 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
-    /*private void DestroyCaveEntranceCaveBException(string CaveName)
-    {
-        GameObject CaveExternal = GameObject.Find(CaveName);
-        List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
-        foreach (Transform t in CaveExternalTransforms)
-        {
-            if (t.name.StartsWith("CaveEntrance") || t.name.StartsWith("CaveEntranceShimmy") || t.name.StartsWith("CaveExitShimmy"))
-            {
-                if (t.name.EndsWith("exitShimmy")) { continue; }
-                List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
-                foreach (Transform t2 in CaveEntranceTransforms)
-                {
-                    if (t2.name == "EntranceTrigger" || t2.name == "ExitTrigger" || t2.name == "QuadBlockerEnterCave" || t2.name == "QuadBlockerExitCave" || t2.name == "Renderable") t2.gameObject.SetActive(false);
-                }
-            }
-        }
-    }*/
-
     private void AdjustHouseCave(string CaveName)
     {
         GameObject CaveExternal = GameObject.Find(CaveName);
@@ -663,7 +646,14 @@ public class AllowBuildInCaves : SonsMod
                 {
                     t.localScale = new Vector3(0.06f, 0.3f, 0.3f);
                 }
+            }
 
+            //Cave A Fix
+            if (t.name.EndsWith("CaveEntranceA"))
+            {
+                //Fetch the component Endnight.Utilities.DirectionalTrigger
+                DirectionalTrigger dt = t.GetComponent<DirectionalTrigger>();
+                if (dt != null) { dt._useInnerBoundary = true; }
             }
 
             //Cave B Fix
@@ -690,7 +680,7 @@ public class AllowBuildInCaves : SonsMod
     {
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> { /*"CaveAExternal",*/ "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> { "CaveAExternal", "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
@@ -698,6 +688,7 @@ public class AllowBuildInCaves : SonsMod
         }
         //DestroyCaveEntranceCaveBException("CaveBExternal");
 
+        EntranceManagerGroupFix("CaveA_EntranceManagerGroup");
         EntranceManagerGroupFix("CaveC_EntranceManagerGroup");
         EntranceManagerGroupFix("CaveBExternal");
         EntranceManagerGroupFix("CaveF_External");
@@ -706,6 +697,7 @@ public class AllowBuildInCaves : SonsMod
         DestroyLuxuryEntrance("CaveEExternal");
 
         CaveBExitTriggerCreation();
+        CaveAEntranceTriggerCreation();
     }
 
     private void AdjustCellars()
@@ -769,7 +761,6 @@ public class AllowBuildInCaves : SonsMod
 
         triggerObject.transform.position = triggerPosition;
         triggerObject.AddComponent<CaveBExitTrigger>();
-        RLog.Msg("CaveBExitTrigger created");
 
         GameObject rockRemoverTrigger = new GameObject("RockRemoverTrigger");
         int targetLayer = LayerMask.NameToLayer("BasicCollider");
@@ -777,9 +768,16 @@ public class AllowBuildInCaves : SonsMod
         rockRemoverTrigger.transform.position = triggerPosition;
         rockRemoverTrigger.AddComponent<RockRemoverTrigger>();
         rockRemoverTrigger.AddComponent<RockRemoverPlayerDetectionTrigger>();
-        RLog.Msg("RockRemoverTrigger created");
+    }
 
+    private void CaveAEntranceTriggerCreation()
+    {
+         
+        Vector3 triggerPosition = new Vector3(-423.0533f, 14.3267f, 1511.071f);
+        GameObject triggerObject = new GameObject("CaveAEntranceTrigger");
 
+        triggerObject.transform.position = triggerPosition;
+        triggerObject.AddComponent<CaveAEntranceFixTrigger>();
     }
 
     public static void BlueFix()

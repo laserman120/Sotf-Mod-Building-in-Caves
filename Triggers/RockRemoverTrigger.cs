@@ -32,7 +32,7 @@ using JetAnnotations;
 using UnityEngine.SceneManagement;
 using Endnight.Physics;
 using static Sons.Wearable.Armour.NpcArmourSystem;
-namespace AllowBuildInCaves
+namespace AllowBuildInCaves.Triggers
 
 {
     [RegisterTypeInIl2Cpp]
@@ -97,7 +97,7 @@ namespace AllowBuildInCaves
             if (triggerCollider != null)
             {
                 triggerCollider.size = newSize;
-                RLog.Msg("Trigger size set to: " + newSize);
+                Msg("Trigger size set to: " + newSize);
             }
         }
 
@@ -149,7 +149,7 @@ namespace AllowBuildInCaves
             if (proximityCollider != null)
             {
                 proximityCollider.radius = newSize;
-                RLog.Msg("proximity radius set to: " + newSize);
+                Msg("proximity radius set to: " + newSize);
             }
         }
 
