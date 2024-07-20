@@ -690,7 +690,7 @@ public class AllowBuildInCaves : SonsMod
     {
         if (Config.DontOpenCaves.Value) { return; }
 
-        var caveEntranceNames = new List<string> { "CaveAExternal", "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
+        var caveEntranceNames = new List<string> { /*"CaveAExternal",*/ "CaveBExternal", "CaveCExternal", "CaveDExternal", "CaveF_External", "BE_External", "BF_External", "BunkerFExternal" };
         //opening cave entrances
         foreach (var caveEntranceName in caveEntranceNames)
         {
