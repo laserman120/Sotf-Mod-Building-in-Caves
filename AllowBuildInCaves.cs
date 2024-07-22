@@ -50,6 +50,7 @@ public static class IsInCavesStateManager
     public static bool EnableEasyBunkers { get; set; } = false;
     public static bool RockRemoverCaveBRunning { get; set; } = false;
     public static bool ItemCollectUIFix { get; set; } = false;
+    public static bool CaveTeleportFix { get; set; } = false;
     
 
     // Add methods to update the state when entering/exiting caves
@@ -127,12 +128,32 @@ public class AllowBuildInCaves : SonsMod
         AddTriggerComponentToBunkers();
     }
 
+    //Terrain Height Patch
+    [HarmonyPatch(typeof(TerrainUtilities), "GetTerrainHeight")]
+    private static class GetTerrainHeightPatch
+    {
+        private static bool Prefix(Vector3 transformPosition, ref float __result)
+        {
+            if (IsInCavesStateManager.CaveTeleportFix)
+            {
+                if (IsInCavesStateManager.IsInCaves == true)
+                {
+                    __result = transformPosition.y;
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+
     //Cave Teleport Fix
     [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
     private static class TryGatheringPatch
     {
         private static void Prefix()
         {
+            IsInCavesStateManager.CaveTeleportFix = true;
             if (IsInCavesStateManager.ChangeIsInCaves == null)
             {
                 IsInCavesStateManager.ChangeIsInCaves = true;
@@ -145,6 +166,7 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Prefix()
         {
+            IsInCavesStateManager.CaveTeleportFix = false;
             IsInCavesStateManager.ChangeIsInCaves = false;
         }
     }
@@ -171,6 +193,8 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Prefix()
         {
+            IsInCavesStateManager.CaveTeleportFix = true;
+
             if (IsInCavesStateManager.ChangeIsInCaves == null)
             {
                 IsInCavesStateManager.ChangeIsInCaves = true;
@@ -183,6 +207,7 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Prefix()
         {
+            IsInCavesStateManager.CaveTeleportFix = false;
             IsInCavesStateManager.ChangeIsInCaves = false;
         }
     }
