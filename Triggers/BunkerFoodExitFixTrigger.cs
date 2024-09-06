@@ -5,11 +5,11 @@ using UnityEngine;
 namespace AllowBuildInCaves.Triggers
 {
     [RegisterTypeInIl2Cpp]
-    internal class CaveAEntranceFixTrigger : MonoBehaviour
+    internal class BunkerFoodExitFixTrigger : MonoBehaviour
     {
 
         private SphereCollider triggerCollider;
-        public float radius = 4f;
+        public float radius = 1.5f;
         private TerrainCollider TerrainCollision;
         private GameObject Terrain;
         private Rigidbody PlayerRigidBody;

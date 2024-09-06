@@ -1,36 +1,8 @@
-﻿using Construction;
-using Sons.Gui;
-using SonsSdk;
-using UnityEngine;
-using SUI;
+﻿using UnityEngine;
 using RedLoader;
-using Sons.Areas;
-using HarmonyLib;
-using Endnight.Utilities;
 using TheForest.Utils;
-using System.Reflection.Emit;
-using System.Reflection;
-using TheForest.Player.Actions;
-using Endnight.Environment;
-using System.Runtime.InteropServices;
-using Sons.Gameplay;
-using Sons.Gameplay.GPS;
-using Sons.Ai;
-using Sons.Animation.PlayerControl;
-using Sons.Cutscenes;
-using UnityEngine.Playables;
 using static RedLoader.RLog;
-using TheForest.Items.Inventory;
-using TheForest.Items.Special;
-using Sons.Settings;
-using Sons.Atmosphere;
-using Endnight.Extensions;
-using Sons.Player;
-using TheForest.World;
-using System.Collections;
-using JetAnnotations;
 using UnityEngine.SceneManagement;
-using Endnight.Physics;
 
 namespace AllowBuildInCaves.Triggers
 {

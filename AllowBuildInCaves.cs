@@ -5,7 +5,6 @@ using UnityEngine;
 using SUI;
 using RedLoader;
 using Sons.Areas;
-using HarmonyLib;
 using Endnight.Utilities;
 using TheForest.Utils;
 using System.Reflection.Emit;
@@ -33,6 +32,13 @@ using RedLoader.Utils;
 using Endnight.Types;
 using Sons.Crafting.Structures;
 using AllowBuildInCaves.Triggers;
+using Sons.Animation;
+using Harmony;
+using Sons.Ai.Vail;
+using Sons.Extensions;
+using UnityEngine.UI;
+using HarmonyLib;
+
 
 namespace AllowBuildInCaves;
 
@@ -49,6 +55,7 @@ public static class IsInCavesStateManager
     public static bool ApplySnowFix { get; set; } = false;
     public static bool EnableEasyBunkers { get; set; } = false;
     public static bool RockRemoverCaveBRunning { get; set; } = false;
+    public static bool RockRemoverBunkerFoodRunning { get; set; } = false;
     public static bool ItemCollectUIFix { get; set; } = false;
     public static bool CaveTeleportFix { get; set; } = false;
     
@@ -64,13 +71,14 @@ public class AllowBuildInCaves : SonsMod
     public AllowBuildInCaves()
     {
         // Uncomment any of these if you need a method to run on a specific update loop.
-        //OnUpdateCallback = MyUpdateMethod;
+        OnUpdateCallback = MyUpdateMethod;
         //OnLateUpdateCallback = MyLateUpdateMethod;
         //OnFixedUpdateCallback = MyFixedUpdateMethod;
         //OnGUICallback = MyGUIMethod;
 
         // Uncomment this to automatically apply harmony patches in your assembly.
         HarmonyPatchAll = true;
+        
     }
 
     protected override void OnSonsSceneInitialized(ESonsScene sonsScene)
@@ -83,7 +91,6 @@ public class AllowBuildInCaves : SonsMod
         // Do your early mod initialization which doesn't involve game or sdk references here
         Config.Init();
     }
-
     protected override void OnSdkInitialized()
     {
         // Do your mod initialization which involves game or sdk references here
@@ -94,10 +101,10 @@ public class AllowBuildInCaves : SonsMod
         SettingsRegistry.CreateSettings(this, null, typeof(Config));
 
         // Add a keybind to toggle the mod
-        RLog.Msg(Path.Combine(LoaderEnvironment.ModsDirectory, "pop.mp3"));
         SoundTools.RegisterSound("TeleportPickupPop", Path.Combine(LoaderEnvironment.ModsDirectory, "AllowBuildInCaves/pop.mp3"), true);
 
         //Config.ToggleKey.Notify(MainToggle);
+
     }
 
     public static void PlaySound(Vector3 pos)
@@ -128,48 +135,53 @@ public class AllowBuildInCaves : SonsMod
         AddTriggerComponentToBunkers();
     }
 
-    //Terrain Height Patch
-    [HarmonyPatch(typeof(TerrainUtilities), "GetTerrainHeight")]
-    private static class GetTerrainHeightPatch
+    private static void MyUpdateMethod()
     {
-        private static bool Prefix(Vector3 transformPosition, ref float __result)
+        if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
         {
-            if (IsInCavesStateManager.CaveTeleportFix)
-            {
-                if (IsInCavesStateManager.IsInCaves == true)
-                {
-                    __result = transformPosition.y;
-                    return false;
-                }
-            }
-            return true;
+            HudGui.Instance.ClearAllRequiredCollectionCounts();
         }
     }
 
-
-    //Cave Teleport Fix
-    [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
-    private static class TryGatheringPatch
+    public static void RefreshRequiredItemsUI()
     {
-        private static void Prefix()
+        StructureCraftingSystem._instance.RefreshRequiredItemsUi();
+    }
+
+
+    
+        //Cave Teleport Fix
+        [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
+        private static class TryGatheringPatch
+        {
+            private static void Prefix()
+            {
+                WaitForChangeIsInCavesToBeNull().RunCoro();
+            }
+        }
+
+        private static IEnumerator WaitForChangeIsInCavesToBeNull()
         {
             IsInCavesStateManager.CaveTeleportFix = true;
-            if (IsInCavesStateManager.ChangeIsInCaves == null)
+            // Continuously check until ChangeIsInCaves becomes null
+            while (IsInCavesStateManager.ChangeIsInCaves != null)
             {
-                IsInCavesStateManager.ChangeIsInCaves = true;
+                // Wait for a short duration before checking again
+                yield return new WaitForSeconds(0.1f); // Adjust the wait time if needed
+            }
+
+            IsInCavesStateManager.ChangeIsInCaves = true;
+        }
+
+        [HarmonyPatch(typeof(GatherablePickup), "OnGatheringCompleteCallback")]
+        private static class EndGatheringPatch
+        {
+            private static void Prefix()
+            {
+                IsInCavesStateManager.CaveTeleportFix = false;
+                IsInCavesStateManager.ChangeIsInCaves = false;
             }
         }
-    }
-
-    [HarmonyPatch(typeof(GatherablePickup), "OnGatheringCompleteCallback")]
-    private static class EndGatheringPatch
-    {
-        private static void Prefix()
-        {
-            IsInCavesStateManager.CaveTeleportFix = false;
-            IsInCavesStateManager.ChangeIsInCaves = false;
-        }
-    }
 
     //Gps Tracker Fix
     [HarmonyPatch(typeof(GPSTrackerSystem), "LateUpdate")]
@@ -258,7 +270,7 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
-    //Proximity trigger Fix
+    //Proximity trigger Fix (also no idea whats going on here)
     [HarmonyPatch(typeof(TheForest.SerializableTaskSystem.ProximityCondition), "IsWithinRangeOfTarget")]
     private static class IsWithinRangeOfTargetSerializableFix
     {
@@ -292,7 +304,6 @@ public class AllowBuildInCaves : SonsMod
             if (__instance._inCaveOnly && !IsInCavesStateManager.IsInCaves)
             {
                 __result = false;
-                RLog.Msg("returned false");
                 return false;
             }
             if (__instance._use2dDistance)
@@ -305,77 +316,17 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
-    //Gather Items UI Fix
-    //Very aggressive and not very efficient, but it works
-    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "Update")] 
-    private static class StructureCraftingSystemFix
+    //Hide Ui Fix
+    [HarmonyPatch(typeof(HudGui), "DisplayRequiredCollectionCountForItem")]
+    private static class DisplayRequiredCollectionCountForItemPatch
     {
-        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
+        static bool Prefix(HudGui __instance)
         {
             if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
             {
-                if (IsInCavesStateManager.ChangeIsInCaves == null)
-                {
-                    IsInCavesStateManager.ChangeIsInCaves = true;
-                }
+                return false;
             }
-        }
-
-        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                IsInCavesStateManager.ChangeIsInCaves = false;
-                HudGui.Instance.ClearAllRequiredCollectionCounts();
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "UpdateRequiredCountUIForAllItems")]
-    private static class StructureCraftingSystemFix2
-    {
-        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                if (IsInCavesStateManager.ChangeIsInCaves == null)
-                {
-                    IsInCavesStateManager.ChangeIsInCaves = true;
-                }
-            }
-        }
-
-        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                IsInCavesStateManager.ChangeIsInCaves = false;
-                HudGui.Instance.ClearAllRequiredCollectionCounts();
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(Sons.Crafting.Structures.StructureCraftingSystem), "RefreshRequiredItemsUi")]
-    private static class StructureCraftingSystemFix3
-    {
-        private static void Prefix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                if (IsInCavesStateManager.ChangeIsInCaves == null)
-                {
-                    IsInCavesStateManager.ChangeIsInCaves = true;
-                }
-            }
-        }
-
-        private static void Postfix(Sons.Crafting.Structures.StructureCraftingSystem __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                IsInCavesStateManager.ChangeIsInCaves = false;
-                HudGui.Instance.ClearAllRequiredCollectionCounts();
-            }
+            return true;
         }
     }
 
@@ -572,7 +523,6 @@ public class AllowBuildInCaves : SonsMod
         List<Transform> CaveExternalTransforms = CaveExternal.GetChildren();
         foreach (Transform t in CaveExternalTransforms)
         {
-
             if (t.name.StartsWith("EntranceLighting"))
             {
                 List<Transform> CaveEntranceTransforms = t.gameObject.GetChildren();
@@ -700,7 +650,6 @@ public class AllowBuildInCaves : SonsMod
 
         }
     }
-
     private void DestroyEntrances()
     {
         if (Config.DontOpenCaves.Value) { return; }
@@ -723,6 +672,7 @@ public class AllowBuildInCaves : SonsMod
 
         CaveBExitTriggerCreation();
         CaveAEntranceTriggerCreation();
+        BunkerFoodExitTriggerCreation();
     }
 
     private void AdjustCellars()
@@ -771,11 +721,8 @@ public class AllowBuildInCaves : SonsMod
 
                     triggerObject.AddComponent<BunkerTeleportTrigger>();
 
-                }
-                
-            }
-
-            
+                }              
+            }       
         }
     }
 
@@ -791,18 +738,39 @@ public class AllowBuildInCaves : SonsMod
         int targetLayer = LayerMask.NameToLayer("BasicCollider");
         rockRemoverTrigger.layer = targetLayer;
         rockRemoverTrigger.transform.position = triggerPosition;
-        rockRemoverTrigger.AddComponent<RockRemoverTrigger>();
-        rockRemoverTrigger.AddComponent<RockRemoverPlayerDetectionTrigger>();
+        rockRemoverTrigger.AddComponent<RockRemoverTriggerCaveB>();
+
+        GameObject rockRemoverTriggerDetector = new GameObject("RockRemoverTriggerDetector");
+        rockRemoverTriggerDetector.transform.position = triggerPosition;
+        rockRemoverTriggerDetector.AddComponent<RockRemoverPlayerDetectionTrigger>();
     }
 
     private void CaveAEntranceTriggerCreation()
     {
-         
         Vector3 triggerPosition = new Vector3(-423.0533f, 14.3267f, 1511.071f);
         GameObject triggerObject = new GameObject("CaveAEntranceTrigger");
 
         triggerObject.transform.position = triggerPosition;
         triggerObject.AddComponent<CaveAEntranceFixTrigger>();
+    }
+
+    private void BunkerFoodExitTriggerCreation()
+    {
+        GameObject triggerObject = new GameObject("BunkerFoodExitTrigger");
+        triggerObject.transform.position = new Vector3(-674.382f, 51.68f, 1148.683f);
+        triggerObject.AddComponent<BunkerFoodExitFixTrigger>();
+
+
+        GameObject rockRemoverTrigger = new GameObject("RockRemoverTriggerFoodBunkerExit");
+        int targetLayer = LayerMask.NameToLayer("BasicCollider");
+        rockRemoverTrigger.layer = targetLayer;
+        rockRemoverTrigger.transform.position = new Vector3(-674.582f, 51.78f, 1148.683f);
+        rockRemoverTrigger.AddComponent<RockRemoverTriggerBunkerFoodExit>();
+
+
+        GameObject rockRemoverTriggerDetector = new GameObject("RockRemoverTriggerFoodBunkerExitDetector");
+        rockRemoverTriggerDetector.transform.position = new Vector3(-674.582f, 51.78f, 1148.683f);
+        rockRemoverTriggerDetector.AddComponent<RockRemoverTriggerBunkerFoodExitPlayerDetectionTrigger>();
     }
 
     public static void BlueFix()

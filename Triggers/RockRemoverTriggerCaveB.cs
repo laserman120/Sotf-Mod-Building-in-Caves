@@ -1,46 +1,14 @@
-﻿using Construction;
-using Sons.Gui;
-using SonsSdk;
-using UnityEngine;
-using SUI;
+﻿using UnityEngine;
 using RedLoader;
-using Sons.Areas;
-using HarmonyLib;
-using Endnight.Utilities;
-using TheForest.Utils;
-using System.Reflection.Emit;
-using System.Reflection;
-using TheForest.Player.Actions;
-using Endnight.Environment;
-using System.Runtime.InteropServices;
-using Sons.Gameplay;
-using Sons.Gameplay.GPS;
-using Sons.Ai;
-using Sons.Animation.PlayerControl;
-using Sons.Cutscenes;
-using UnityEngine.Playables;
 using static RedLoader.RLog;
-using TheForest.Items.Inventory;
-using TheForest.Items.Special;
-using Sons.Settings;
-using Sons.Atmosphere;
-using Endnight.Extensions;
-using Sons.Player;
-using TheForest.World;
-using System.Collections;
-using JetAnnotations;
-using UnityEngine.SceneManagement;
-using Endnight.Physics;
-using static Sons.Wearable.Armour.NpcArmourSystem;
 namespace AllowBuildInCaves.Triggers
 
 {
     [RegisterTypeInIl2Cpp]
-    internal class RockRemoverTrigger : MonoBehaviour
+    internal class RockRemoverTriggerCaveB : MonoBehaviour
     {
         private BoxCollider triggerCollider;
         public Vector3 size = new Vector3(0.5f, 1f, 0.5f);
-        private GameObject CaveBCollision;
         float timer = 0.0f;
         float waitTime = 5.0f;
 
@@ -112,7 +80,6 @@ namespace AllowBuildInCaves.Triggers
     {
         private SphereCollider proximityCollider; // Larger trigger for player proximity
         public float proximityRadius = 150f; // Adjust as needed
-        public bool isPlayerNearby = false;
 
         private void Start()
         {
@@ -155,7 +122,7 @@ namespace AllowBuildInCaves.Triggers
 
         public bool IsPlayerNearby()
         {
-            return isPlayerNearby;
+            return IsInCavesStateManager.RockRemoverCaveBRunning;
         }
 
         public float GetProximityRadius()

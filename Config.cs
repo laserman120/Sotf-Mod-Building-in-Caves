@@ -81,5 +81,6 @@ public static class Config
         if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
         if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
         if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.FixCollectUI(); }
+        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
     }
 }
