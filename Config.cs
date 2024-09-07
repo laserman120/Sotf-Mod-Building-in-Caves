@@ -43,23 +43,23 @@ public static class Config
            "Keep Logs or Stones when entering Caves or Bunkers",
            "This will give you the Logs or Stones back when entering a Cave or Bunker through the cutscene");
 
-        SnowFix = Category.CreateEntry(
+        /*SnowFix = Category.CreateEntry(
            "snow_fix",
            true,
            "Disables snow when inside a cave",
            "Will disable the snow on builds when entering caves");
-
+        */
         EasyBunkers = Category.CreateEntry(
            "easy_bunkers",
            false,
            "Easy transportation of logs or stones into bunkers",
            "Logs or Stones thrown onto a bunker entrance will be teleported inside");
 
-        ItemCollectUIFix = Category.CreateEntry(
+        /*ItemCollectUIFix = Category.CreateEntry(
            "item_collect_ui_fix",
            true,
            "Disable collect Items UI inside Caves",
-           "Will remove the items to collect ui when entering a cave");
+           "Will remove the items to collect ui when entering a cave");*/
 
         //ToggleKey = Category.CreateKeybindEntry(
         //"toggle_key",
@@ -74,13 +74,13 @@ public static class Config
         IsInCavesStateManager.GPSShouldLoseSignal = GPSLoseSignal.Value;
         IsInCavesStateManager.ApplyBlueFix = BlueFix.Value;
         IsInCavesStateManager.AllowItemsDuringAnimation = KeepItemsInCutscene.Value;
-        IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
+        //IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
         IsInCavesStateManager.EnableEasyBunkers = EasyBunkers.Value;
-        IsInCavesStateManager.ItemCollectUIFix = ItemCollectUIFix.Value;
+        //IsInCavesStateManager.ItemCollectUIFix = ItemCollectUIFix.Value;
 
-        if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
-        if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
-        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.FixCollectUI(); }
-        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
+        //if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
+        //if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
+        //if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.FixCollectUI(); }
+        //if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
     }
 }

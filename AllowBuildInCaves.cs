@@ -56,8 +56,8 @@ public static class IsInCavesStateManager
     public static bool EnableEasyBunkers { get; set; } = false;
     public static bool RockRemoverCaveBRunning { get; set; } = false;
     public static bool RockRemoverBunkerFoodRunning { get; set; } = false;
-    public static bool ItemCollectUIFix { get; set; } = false;
-    public static bool CaveTeleportFix { get; set; } = false;
+    //public static bool ItemCollectUIFix { get; set; } = false;
+    //public static bool CaveTeleportFix { get; set; } = false;
     
 
     // Add methods to update the state when entering/exiting caves
@@ -71,7 +71,7 @@ public class AllowBuildInCaves : SonsMod
     public AllowBuildInCaves()
     {
         // Uncomment any of these if you need a method to run on a specific update loop.
-        OnUpdateCallback = MyUpdateMethod;
+        //OnUpdateCallback = MyUpdateMethod;
         //OnLateUpdateCallback = MyLateUpdateMethod;
         //OnFixedUpdateCallback = MyFixedUpdateMethod;
         //OnGUICallback = MyGUIMethod;
@@ -117,16 +117,32 @@ public class AllowBuildInCaves : SonsMod
     {
         // This is called once the player spawns in the world and gains control.
 
+        var inWorldModules = ConstructionSystem._instance._inWorldModules;
+        var inCaveModules = ConstructionSystem._instance._inCavesModules;
+        foreach (var module in inWorldModules._allHighPriorityOnStructureElementDynamicModules)
+            inCaveModules._allHighPriorityOnStructureElementDynamicModules.AddIfUnique(module);
+        foreach (var module in inWorldModules._allOnStructureElementDynamicModules)
+            inCaveModules._allOnStructureElementDynamicModules.AddIfUnique(module);
+        foreach (var module in inWorldModules._allOnStructureElementPredictingModules)
+            inCaveModules._allOnStructureElementPredictingModules.AddIfUnique(module);
+        foreach (var module in inWorldModules._allOnOtherTargetModules)
+        {
+            if (module != null)
+                inCaveModules._allOnOtherTargetModules.AddIfUnique(module);
+        }
+        
+
+
         //Find the construction manager in the scene.
         //This is the manager that handles all construction in the game.
         IsInCavesStateManager.GPSShouldLoseSignal = Config.GPSLoseSignal.Value;
         IsInCavesStateManager.ApplyBlueFix = Config.BlueFix.Value;
         if (IsInCavesStateManager.ApplyBlueFix && IsInCavesStateManager.IsInCaves) { BlueFix(); }
         IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
-        IsInCavesStateManager.ApplySnowFix = Config.SnowFix.Value;
+        IsInCavesStateManager.ApplySnowFix = true;
         if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false, false); }
         IsInCavesStateManager.EnableEasyBunkers = Config.EasyBunkers.Value;
-        IsInCavesStateManager.ItemCollectUIFix = Config.ItemCollectUIFix.Value;
+        //IsInCavesStateManager.ItemCollectUIFix = Config.ItemCollectUIFix.Value;
 
         SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
 
@@ -135,53 +151,10 @@ public class AllowBuildInCaves : SonsMod
         AddTriggerComponentToBunkers();
     }
 
-    private static void MyUpdateMethod()
-    {
-        if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-        {
-            HudGui.Instance.ClearAllRequiredCollectionCounts();
-        }
-    }
-
     public static void RefreshRequiredItemsUI()
     {
         StructureCraftingSystem._instance.RefreshRequiredItemsUi();
     }
-
-
-    
-        //Cave Teleport Fix
-        [HarmonyPatch(typeof(GatherablePickup), "TryGather")]
-        private static class TryGatheringPatch
-        {
-            private static void Prefix()
-            {
-                WaitForChangeIsInCavesToBeNull().RunCoro();
-            }
-        }
-
-        private static IEnumerator WaitForChangeIsInCavesToBeNull()
-        {
-            IsInCavesStateManager.CaveTeleportFix = true;
-            // Continuously check until ChangeIsInCaves becomes null
-            while (IsInCavesStateManager.ChangeIsInCaves != null)
-            {
-                // Wait for a short duration before checking again
-                yield return new WaitForSeconds(0.1f); // Adjust the wait time if needed
-            }
-
-            IsInCavesStateManager.ChangeIsInCaves = true;
-        }
-
-        [HarmonyPatch(typeof(GatherablePickup), "OnGatheringCompleteCallback")]
-        private static class EndGatheringPatch
-        {
-            private static void Prefix()
-            {
-                IsInCavesStateManager.CaveTeleportFix = false;
-                IsInCavesStateManager.ChangeIsInCaves = false;
-            }
-        }
 
     //Gps Tracker Fix
     [HarmonyPatch(typeof(GPSTrackerSystem), "LateUpdate")]
@@ -189,206 +162,13 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Postfix(GPSTrackerSystem __instance)
         {
-            if (IsInCavesStateManager.GPSShouldLoseSignal == true)
+            if (IsInCavesStateManager.GPSShouldLoseSignal == false)
             {
-                __instance._trackerSignalLost = IsInCavesStateManager.IsInCaves;
+                __instance._trackerSignalLost = false;
                 __instance._signalLost.SetActive(__instance._trackerSignalLost);
                 __instance._screenStatic.SetActive(!__instance._trackerSignalLost);
                 __instance._playerArrow.gameObject.SetActive(!__instance._trackerSignalLost);
             }
-        }
-    }
-
-    //Sledding Teleport Fix
-    [HarmonyPatch(typeof(PlayerAnimatorControl), "StartSledding")]
-    private static class StartSleddingPatch
-    {
-        private static void Prefix()
-        {
-            IsInCavesStateManager.CaveTeleportFix = true;
-
-            if (IsInCavesStateManager.ChangeIsInCaves == null)
-            {
-                IsInCavesStateManager.ChangeIsInCaves = true;
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(PlayerAnimatorControl), "EndSledding")]
-    private static class EndSleddingPatch
-    {
-        private static void Prefix()
-        {
-            IsInCavesStateManager.CaveTeleportFix = false;
-            IsInCavesStateManager.ChangeIsInCaves = false;
-        }
-    }
-
-    //Butterfly Spawn Fix
-    [HarmonyPatch(typeof(ButterflySpawner), "CanSpawn")]
-    private static class ButterflySpawnPatch
-    {
-        static bool Prefix()
-        {
-            if (IsInCavesStateManager.IsInCaves == true)
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-    }
-
-    //Rebreather fix
-    [HarmonyPatch(typeof(PlayerAnimatorControl), "UpdateInWaterControl")]
-    private static class RebreatherFixPatch
-    {
-        private static void Postfix(PlayerAnimatorControl __instance)
-        {
-            if (__instance._divingStarted && IsInCavesStateManager.IsInCaves == true)
-            {
-                if (LocalPlayer.Inventory.Owns(444))
-                {
-                    LocalPlayer.Inventory.TryEquip(444, false, true);
-                }
-            }
-        }
-    }
-
-    //Inventory LED strip fix
-    [HarmonyPatch(typeof(Sons.Inventory.InventoryLedStripManager), "Update")]
-    private static class LedStripPatch
-    {
-        private static void Postfix(Sons.Inventory.InventoryLedStripManager __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves == true && !__instance._manuallyTriggeredPowerState && !__instance._isPowerOn)
-            {
-                __instance.PowerOn(true);
-            }
-        }
-    }
-
-    //Proximity trigger Fix (also no idea whats going on here)
-    [HarmonyPatch(typeof(TheForest.SerializableTaskSystem.ProximityCondition), "IsWithinRangeOfTarget")]
-    private static class IsWithinRangeOfTargetSerializableFix
-    {
-        private static bool Prefix(TheForest.SerializableTaskSystem.ProximityCondition __instance, ref bool __result)
-        {
-            if (__instance._inCaveOnly && !IsInCavesStateManager.IsInCaves)
-            {
-                __result = false;
-                return false;
-            }
-            if (__instance._use2dDistance)
-            {
-                __result = Vector2.Distance(new Vector2(__instance._targetObject.position.x, __instance._targetObject.position.z), new Vector2(LocalPlayer.Transform.position.x, LocalPlayer.Transform.position.z)) < __instance._distance;
-                return false;
-            }
-            __result = Vector3.Distance(__instance._targetObject.position, LocalPlayer.Transform.position) < __instance._distance;
-            return false;
-        }
-    }
-
-    [HarmonyPatch(typeof(TheForest.TaskSystem.ProximityCondition), "IsWithinRangeOfTarget")]
-    private static class IsWithinRangeOfTargetFix
-    {
-        private static bool Prefix(TheForest.TaskSystem.ProximityCondition __instance, ref bool __result)
-        {
-            if (!LocalPlayer.Transform)
-            {
-                __result = false;
-                return false;
-            }
-            if (__instance._inCaveOnly && !IsInCavesStateManager.IsInCaves)
-            {
-                __result = false;
-                return false;
-            }
-            if (__instance._use2dDistance)
-            {
-                __result = Vector2.Distance(new Vector2(__instance._targetObject.position.x, __instance._targetObject.position.z), new Vector2(LocalPlayer.Transform.position.x, LocalPlayer.Transform.position.z)) < __instance._distance;
-                return false;
-            }
-            __result = Vector3.Distance(__instance._targetObject.position, LocalPlayer.Transform.position) < __instance._distance;
-            return false;
-        }
-    }
-
-    //Hide Ui Fix
-    [HarmonyPatch(typeof(HudGui), "DisplayRequiredCollectionCountForItem")]
-    private static class DisplayRequiredCollectionCountForItemPatch
-    {
-        static bool Prefix(HudGui __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves && IsInCavesStateManager.ItemCollectUIFix)
-            {
-                return false;
-            }
-            return true;
-        }
-    }
-
-    //Wetness fix
-    [HarmonyPatch(typeof(BloodAndColdScreenOverlay), "UpdateWetnessAndRain")]
-    private static class WetnessPatch
-    {
-        static bool Prefix(BloodAndColdScreenOverlay __instance)
-        {
-            if (IsInCavesStateManager.IsInCaves == true)
-            {
-                __instance._bloodColdController.rainAmount.value = 0f;
-                return false;
-            }
-            return true;
-        }
-    }
-
-    //Weather FIx
-    [HarmonyPatch(typeof(WeatherSystem), "CheckInCave")]
-    private static class WeatherSystemPatch
-    {
-        private static bool Prefix()
-        {
-            RainTypes rainTypes = WeatherSystem.GetRainTypes();
-            if (rainTypes == null)
-            {
-                return false;
-            }
-            GameObject caveFilter = rainTypes.CaveFilter;
-            if (caveFilter == null)
-            {
-                return false;
-            }
-            if (IsInCavesStateManager.IsInCaves || (LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == PlayerInventory.PlayerViews.PlaneCrash))
-            {
-                if (rainTypes.CaveFilter.activeSelf)
-                {
-                    rainTypes.CaveFilter.SetActive(false);
-                    return false;
-                }
-            }
-            else if (!caveFilter.activeSelf)
-            {
-                caveFilter.SetActive(true);
-            }
-            return false;
-        }
-    }
-
-    //IsInSnow fix (Honestly dont know what this does)
-    [HarmonyPatch(typeof(PlayerStats), "IsInSnow")]
-    private static class IsInSnowPatch
-    {
-        static bool Prefix(ref bool __result)
-        {
-            if (IsInCavesStateManager.IsInCaves == true)
-            {
-                __result = false;
-                return false;
-            }
-            return true;
         }
     }
 
@@ -411,6 +191,7 @@ public class AllowBuildInCaves : SonsMod
         }
     }
 
+    
     //Climb up hatch
     [HarmonyPatch(typeof(ClimbUpHatchTrigger), "ClimbInputReceived")]
     private static class EnterHatchUpCutscenePatch
@@ -438,7 +219,6 @@ public class AllowBuildInCaves : SonsMod
     {
         private static void Postfix()
         {
-            CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.EnterCave();
             BlueFix();
             SnowFix(false, false);
@@ -448,54 +228,16 @@ public class AllowBuildInCaves : SonsMod
     [HarmonyPatch(typeof(CaveEntranceManager), "OnCaveExit")]
     private static class ExitPatch
     {
-        private static void Prefix()
-        {
-            CaveEntranceManager._isInCaves = true;
-        }
+        //private static void Prefix()
+        //{
+        //    CaveEntranceManager._isInCaves = true;
+        //}
         private static void Postfix()
         {
-            CaveEntranceManager._isInCaves = false;
             IsInCavesStateManager.ExitCave();
             UndoBlueFix();
             SnowFix(true, false);
-            FixCollectUI();
-        }
-    }
-
-    [HarmonyPatch(typeof(CaveEntranceManager), "OnUpdateMask")]
-    private static class PerpetualPatch
-    {
-        private static void Prefix()
-        {
-            CaveEntranceManager._isInCaves = false;
-        }
-    }
-
-    //Allow changing the IsInCaves state in the CaveEntranceManager
-
-    [HarmonyPatch(typeof(CaveEntranceManager), "UpdateAllPlayerAreaMask")]
-    private static class PlayerMaskHijakPatch
-    {
-        private static void Prefix()
-        {
-            if(IsInCavesStateManager.ChangeIsInCaves != null)
-            {
-                if (IsInCavesStateManager.ChangeIsInCaves == true)
-                {
-                    if (CaveEntranceManager.IsInCaves != IsInCavesStateManager.IsInCaves)
-                    {
-                        CaveEntranceManager._isInCaves = IsInCavesStateManager.IsInCaves;
-                    }
-                }
-                else if (IsInCavesStateManager.ChangeIsInCaves == false)
-                {
-                    CaveEntranceManager._isInCaves = false;
-                    IsInCavesStateManager.ChangeIsInCaves = null;
-                }
-                //Do not execute the rest of the code
-                return;
-            }
-
+            //FixCollectUI();
         }
     }
 
@@ -881,15 +623,6 @@ public class AllowBuildInCaves : SonsMod
             {
                 Shader.SetGlobalFloat("_Sons_SnowAmount", 0);
             }
-        }
-    }
-
-    public static void FixCollectUI()
-    {
-        if (IsInCavesStateManager.ItemCollectUIFix)
-        {
-            StructureCraftingSystem structureCraftingSystem = StructureCraftingSystem._instance;
-            structureCraftingSystem.RefreshRequiredItemsUi();
         }
     }
 }
