@@ -55,11 +55,11 @@ public static class Config
            "Easy transportation of logs or stones into bunkers",
            "Logs or Stones thrown onto a bunker entrance will be teleported inside");
 
-        /*ItemCollectUIFix = Category.CreateEntry(
+        ItemCollectUIFix = Category.CreateEntry(
            "item_collect_ui_fix",
            true,
            "Disable collect Items UI inside Caves",
-           "Will remove the items to collect ui when entering a cave");*/
+           "Will remove the items to collect ui when entering a cave");
 
         //ToggleKey = Category.CreateKeybindEntry(
         //"toggle_key",
@@ -76,11 +76,14 @@ public static class Config
         IsInCavesStateManager.AllowItemsDuringAnimation = KeepItemsInCutscene.Value;
         //IsInCavesStateManager.ApplySnowFix = SnowFix.Value;
         IsInCavesStateManager.EnableEasyBunkers = EasyBunkers.Value;
-        //IsInCavesStateManager.ItemCollectUIFix = ItemCollectUIFix.Value;
+
+
+        IsInCavesStateManager.ItemCollectUIFix = ItemCollectUIFix.Value;
 
         //if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
         //if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
-        //if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.FixCollectUI(); }
-        //if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
+        if(ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUiInCave(); }
+        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
+
     }
 }

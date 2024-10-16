@@ -56,7 +56,7 @@ public static class IsInCavesStateManager
     public static bool EnableEasyBunkers { get; set; } = false;
     public static bool RockRemoverCaveBRunning { get; set; } = false;
     public static bool RockRemoverBunkerFoodRunning { get; set; } = false;
-    //public static bool ItemCollectUIFix { get; set; } = false;
+    public static bool ItemCollectUIFix { get; set; } = false;
     //public static bool CaveTeleportFix { get; set; } = false;
     
 
@@ -67,11 +67,12 @@ public static class IsInCavesStateManager
 public class AllowBuildInCaves : SonsMod
 {
     private static SeasonsManager SeasonManager;
+    private static StructureCraftingSystem CraftingSystem;
     public static ESonsScene SonsScene;
     public AllowBuildInCaves()
     {
         // Uncomment any of these if you need a method to run on a specific update loop.
-        //OnUpdateCallback = MyUpdateMethod;
+        OnUpdateCallback = MyUpdateMethod;
         //OnLateUpdateCallback = MyLateUpdateMethod;
         //OnFixedUpdateCallback = MyFixedUpdateMethod;
         //OnGUICallback = MyGUIMethod;
@@ -116,9 +117,9 @@ public class AllowBuildInCaves : SonsMod
     protected override void OnGameStart()
     {
         // This is called once the player spawns in the world and gains control.
-
         var inWorldModules = ConstructionSystem._instance._inWorldModules;
         var inCaveModules = ConstructionSystem._instance._inCavesModules;
+
         foreach (var module in inWorldModules._allHighPriorityOnStructureElementDynamicModules)
             inCaveModules._allHighPriorityOnStructureElementDynamicModules.AddIfUnique(module);
         foreach (var module in inWorldModules._allOnStructureElementDynamicModules)
@@ -127,11 +128,11 @@ public class AllowBuildInCaves : SonsMod
             inCaveModules._allOnStructureElementPredictingModules.AddIfUnique(module);
         foreach (var module in inWorldModules._allOnOtherTargetModules)
         {
-            if (module != null)
-                inCaveModules._allOnOtherTargetModules.AddIfUnique(module);
+            if (module != null) inCaveModules._allOnOtherTargetModules.AddIfUnique(module);
         }
-        
 
+
+        CraftingSystem = StructureCraftingSystem._instance;
 
         //Find the construction manager in the scene.
         //This is the manager that handles all construction in the game.
@@ -141,19 +142,75 @@ public class AllowBuildInCaves : SonsMod
         IsInCavesStateManager.AllowItemsDuringAnimation = Config.KeepItemsInCutscene.Value;
         IsInCavesStateManager.ApplySnowFix = true;
         if (IsInCavesStateManager.ApplySnowFix && IsInCavesStateManager.IsInCaves) { SnowFix(false, false); }
-        IsInCavesStateManager.EnableEasyBunkers = Config.EasyBunkers.Value;
-        //IsInCavesStateManager.ItemCollectUIFix = Config.ItemCollectUIFix.Value;
+        //IsInCavesStateManager.EnableEasyBunkers = Config.EasyBunkers.Value;
+        IsInCavesStateManager.ItemCollectUIFix = Config.ItemCollectUIFix.Value;
 
         SeasonManager = GameObject.Find("SeasonsManager").GetComponent<SeasonsManager>();
 
         DestroyEntrances();
         AdjustCellars();
         AddTriggerComponentToBunkers();
-    }
+
+
+
+
+
+
+        Vector3[] points1 = new Vector3[]
+        {
+        new Vector3(1823f, 19.5f, 539f),
+        new Vector3(1824f, 19.5f, 540f),
+        new Vector3(1825f, 19.5f, 540f),
+        new Vector3(1827f, 19.5f, 542f),
+        new Vector3(1824f, 19.5f, 549f),
+        };
+
+        Vector3[] points2 = new Vector3[]
+{
+        new Vector3(1830f, 19.5f, 536f),
+        new Vector3(1835f, 19.5f, 535f),
+        new Vector3(1831f, 19.5f, 533f),
+        new Vector3(1836f, 19.5f, 536f),
+        new Vector3(1840f, 19.5f, 533f),
+};
+
+        GenerateMeshData(points1, 0.2f, 0.2f);
+        GenerateMeshData(points2, 0.2f, 0.2f);
+
+        // Example usage with 4 points
+        Vector3[] points = new Vector3[]
+        {
+            new Vector3(1756.013f, 39.8327f, 552.9528f), // Connects to the main navmesh
+            new Vector3(1753.378f, 40.346f, 552.8621f),
+            new Vector3(1751.516f, 39.51f, 552.8435f),
+            new Vector3(1740.132f, 39.52f, 553.4894f),
+            new Vector3(1739.909f, 39.52f, 549.1848f),
+            new Vector3(1739.792f, 35.82f, 539.6614f),
+            new Vector3(1736.882f, 35.82f, 539.5541f),
+            new Vector3(1737.004f, 32.12f, 552.0319f),
+            new Vector3(1739.782f, 32.12f, 552.2333f),
+            new Vector3(1740.061f, 28.42f, 538.2747f),
+            new Vector3(1737.299f, 28.42f, 538.0711f),
+            new Vector3(1737.066f, 28.42f, 541.1553f),
+            new Vector3(1737.077f, 24.72f, 553.1839f),
+            new Vector3(1666.564f, 24.718f, 553.1696f),
+            new Vector3(1666.616f, 22.952f, 544.5799f),
+            new Vector3(1664.501f, 22.952f, 544.9677f),
+            new Vector3(1664.543f, 21.507f, 552.0028f),
+            new Vector3(1643.415f, 21.43f, 554.8794f),
+        };
+
+        GenerateMeshData(points, 0.2f, 0.2f);
+    }   
 
     public static void RefreshRequiredItemsUI()
     {
-        StructureCraftingSystem._instance.RefreshRequiredItemsUi();
+        CraftingSystem.RefreshRequiredItemsUi();
+    }
+
+    public static void RefreshRequiredItemsUiInCave()
+    {
+        HudGui._instance.ClearAllRequiredCollectionCounts();
     }
 
     //Gps Tracker Fix
@@ -171,6 +228,269 @@ public class AllowBuildInCaves : SonsMod
             }
         }
     }
+    [HarmonyPatch(typeof(HudGui), "ClearAllRequiredCollectionCounts")]
+    private static class HudGuiClearRequiredPatch
+    {
+        private static bool Prefix()
+        {
+            if (IsInCavesStateManager.ItemCollectUIFix) { return true; }
+            if (IsInCavesStateManager.IsInCaves)
+            {
+                CraftingSystem.UpdateRequiredCountUIForAllItems();
+                return false;
+                
+            };
+            return true;
+        }
+    }
+
+    private static void MyUpdateMethod()
+    {
+        if(IsInCavesStateManager.IsInCaves && !IsInCavesStateManager.ItemCollectUIFix)
+        {
+            CraftingSystem.UpdateRequiredCountUIForAllItems();
+        }
+    }
+
+    public bool GenerateMeshData(Vector3[] IPoints, float forwardDistance, float backwardDistance)
+    {
+        if (IPoints.Length < 2)
+        {
+            RLog.Error("At least 2 points are required to create a navmesh line.");
+            return false;
+        }
+
+        List<Vector3> vertices = new List<Vector3>();
+        List<int> triangles = new List<int>();
+        Il2CppSystem.Collections.Generic.List<UnityEngine.Vector3> allVertices = new Il2CppSystem.Collections.Generic.List<UnityEngine.Vector3>();
+        Il2CppSystem.Collections.Generic.List<int> allIndices = new Il2CppSystem.Collections.Generic.List<int>();
+        Vector3 firstPoint = IPoints[0];
+
+        // Handle the first IPoint
+        Vector3 firstDirection = (IPoints[1] - IPoints[0]).normalized;
+        Vector3 firstPerpendicular = Vector3.Cross(firstDirection, Vector3.up).normalized;
+        if (firstPerpendicular == Vector3.zero)
+        {
+            firstPerpendicular = Vector3.Cross(firstDirection, Vector3.forward).normalized;
+        }
+        vertices.Add(IPoints[0] - firstPerpendicular * forwardDistance); // Point 1
+        vertices.Add(IPoints[0] + firstPerpendicular * forwardDistance); // Point 2
+
+        // Vertices Calculation
+        for (int i = 1; i < IPoints.Length - 1; i++)
+        {
+            Vector3 p1 = new Vector3(IPoints[i - 1].x, IPoints[i].y, IPoints[i - 1].z);
+            Vector3 p2 = IPoints[i];
+            Vector3 p3 = new Vector3(IPoints[i + 1].x, IPoints[i].y, IPoints[i + 1].z);
+
+            // Calculate the normal of the plane
+            Vector3 normal = Vector3.Cross(p1 - p2, p3 - p2).normalized;
+
+            // Calculate the angle between IPoint 1 and 3
+            float angle = Vector3.Angle(p1 - p2, p3 - p2);
+            Vector3 bisector = ((p1 - p2).normalized + (p3 - p2).normalized).normalized;
+
+            // Project the bisector onto the plane
+            Vector3 projectedBisector = bisector - Vector3.Dot(bisector, normal) * normal;
+
+            // Place a point along the projected bisector (Point 3, 6, 9, etc.)
+            vertices.Add(p2 + projectedBisector.normalized * forwardDistance);
+
+            // Draw imaginary line from IPoint3 to IPoint2 and place a point (Point 4, 7, 10, etc.)
+            vertices.Add(p2 + (p2 - p3).normalized * backwardDistance);
+
+            // Draw imaginary line from IPoint1 to IPoint2 and place a point (Point 5, 8, etc.)
+            vertices.Add(p2 + (p2 - p1).normalized * backwardDistance);
+        }
+
+        // Handle the last IPoint
+        Vector3 lastDirection = (IPoints[IPoints.Length - 2] - IPoints[IPoints.Length - 1]).normalized;
+        Vector3 lastPerpendicular = Vector3.Cross(lastDirection, Vector3.up).normalized;
+        if (lastPerpendicular == Vector3.zero)
+        {
+            lastPerpendicular = Vector3.Cross(lastDirection, Vector3.forward).normalized;
+        }
+        vertices.Add(IPoints[IPoints.Length - 1] + lastPerpendicular * forwardDistance); // Point 13
+        vertices.Add(IPoints[IPoints.Length - 1] - lastPerpendicular * forwardDistance); // Point 12
+
+        //Triangle calculation
+        for (int i = 1; i < IPoints.Length - 1; i++)
+        {
+            RLog.Msg("Calculating for IPoint " +  i);
+            if (i == 1) // Special handling for the second IPoint (since we start at i = 1)
+            {
+                triangles.Add(0);     // 0, 1, 2 
+                triangles.Add(2);
+                triangles.Add(1);
+
+                triangles.Add(1);     // 2, 3, 1 
+                triangles.Add(2);
+                triangles.Add(3);
+            }
+            else
+            {
+                int baseIndex = (i - 1) * 3; // 3 vertices per IPoint
+                RLog.Msg("Running loop for:");
+                RLog.Msg("BaseIndex: " + baseIndex);
+                RLog.Msg("For Points: " + (baseIndex - 1 ) + " " + (baseIndex + 2) + " " + (baseIndex + 1) + " " + (baseIndex + 3));
+                RLog.Msg("Point " + (baseIndex - 1) + " : " + vertices[baseIndex - 1]);
+                RLog.Msg("Point " + (baseIndex + 2) + " : " + vertices[baseIndex + 2]);
+                RLog.Msg("Point " + (baseIndex + 1) + " : " + vertices[baseIndex + 1]);
+                RLog.Msg("Point " + (baseIndex + 3) + " : " + vertices[baseIndex + 3]);
+                RLog.Msg("Intersection: " + DoLinesIntersect(vertices[baseIndex - 1], vertices[baseIndex + 2], vertices[baseIndex + 1], vertices[baseIndex + 3]));
+                if (!DoLinesIntersect(vertices[baseIndex - 1], vertices[baseIndex + 2], vertices[baseIndex + 1], vertices[baseIndex + 3]))
+                {
+                    //If they do NOT intersect
+                    triangles.Add(baseIndex + 1);
+                    triangles.Add(baseIndex + 2);
+                    triangles.Add(baseIndex + 3);
+
+                    triangles.Add(baseIndex - 1);
+                    triangles.Add(baseIndex + 2);
+                    triangles.Add(baseIndex + 1);
+                    
+
+                } else
+                {
+                    //If they DO intersect
+                    triangles.Add(baseIndex - 1);
+                    triangles.Add(baseIndex + 3);
+                    triangles.Add(baseIndex + 2);
+
+                    triangles.Add(baseIndex - 1);
+                    triangles.Add(baseIndex + 2);
+                    triangles.Add(baseIndex + 1);
+                }
+
+
+
+                //WINDING ORDER COUNTER CLOCKWISE!
+                // Form triangles 
+                triangles.Add(baseIndex - 1);
+                triangles.Add(baseIndex + 1);
+                triangles.Add(baseIndex);
+            }
+
+
+        }
+
+        // Form triangles for the last segment (adjust indices)
+        int lastBaseIndex = (IPoints.Length - 2) * 3;
+        if (!DoLinesIntersect(vertices[lastBaseIndex - 1], vertices[lastBaseIndex + 2], vertices[lastBaseIndex + 1], vertices[lastBaseIndex + 3]))
+        {
+            //If they do NOT intersect
+            triangles.Add(lastBaseIndex + 1);
+            triangles.Add(lastBaseIndex + 2);
+            triangles.Add(lastBaseIndex + 3);
+
+            triangles.Add(lastBaseIndex - 1);
+            triangles.Add(lastBaseIndex + 2);
+            triangles.Add(lastBaseIndex + 1);
+
+
+        }
+        else
+        {
+            //If they DO intersect
+            triangles.Add(lastBaseIndex - 1);
+            triangles.Add(lastBaseIndex + 3);
+            triangles.Add(lastBaseIndex + 2);
+
+            triangles.Add(lastBaseIndex - 1);
+            triangles.Add(lastBaseIndex + 2);
+            triangles.Add(lastBaseIndex + 1);
+        }
+
+        triangles.Add(lastBaseIndex - 1);
+        triangles.Add(lastBaseIndex + 1);
+        triangles.Add(lastBaseIndex);
+
+
+        // Add the vertices and indices to the combined lists
+        foreach (var vertex in vertices)
+        {
+            allVertices.Add(vertex);
+        }
+        for (int j = 0; j < triangles.Count; j++)
+        {
+            allIndices.Add(triangles[j]); // No need for vertexOffset here
+        }
+
+        // --- Create GameObject and component ---
+
+        GameObject navMeshObject = new GameObject("_CustomNavMeshLine");
+        NavMeshCustomMeshAdd navMeshAdder = navMeshObject.AddComponent<NavMeshCustomMeshAdd>();
+
+        // --- Apply the combined navmesh ---
+
+        navMeshAdder.ApplyNavMeshAdd(allVertices, allIndices);
+
+        // --- Nav link creation (only for the first point) ---
+
+        bool isConnected = false;
+        Vector3 connectionPoint = Vector3.zero;
+
+        // Multiple connection attempts with raycasting from the FIRST point
+        for (float offset = 0.05f; offset <= 0.3f; offset += 0.05f)
+        {
+            connectionPoint = firstPoint + Vector3.down * offset;
+
+            if (navMeshAdder.TryAddNavLinkToTerrain(firstPoint, connectionPoint))
+            {
+                isConnected = true;
+                break;
+            }
+        }
+
+        if (isConnected)
+        {
+            RLog.Msg($"Created successful connection at {firstPoint} with link point {connectionPoint}");
+            RLog.Msg("All Vertices");
+            for (int j = 0; j < allVertices.Count; j++)
+            {
+                RLog.Msg(allVertices[j]);
+            }
+            RLog.Msg("All Indices");
+            for(int j = 0; j < allIndices.Count; j++){
+                RLog.Msg(allIndices[j]);
+            }
+            return true;
+        }
+        else
+        {
+            RLog.Error("Failed to connect to terrain navmesh.");
+            // ... (consider disabling the navmesh or other actions) ...
+            RLog.Msg("Failed to create nav mesh link");
+            return false;
+        }
+    }
+
+    bool DoLinesIntersect(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4)
+    {
+        // Ensure all points are on the same plane (using p1.y as the height)
+        p1.y = p2.y = p3.y = p4.y;
+
+        // Calculate the direction vectors of the lines (Corrected)
+        Vector3 d1 = (p2 - p1);
+        Vector3 d2 = (p4 - p3);
+
+        // Calculate the denominator for the parametric equations
+        float denominator = d1.x * d2.z - d1.z * d2.x;
+
+        // If the denominator is zero, the lines are parallel
+        if (Mathf.Abs(denominator) < 1e-6f)
+        {
+            return false;
+        }
+
+        // Calculate the parameters for the intersection point
+        float t1 = ((p1.z - p3.z) * d2.x - (p1.x - p3.x) * d2.z) / denominator;
+        float t2 = ((p1.z - p3.z) * d1.x - (p1.x - p3.x) * d1.z) / denominator;
+
+        // Check if the intersection point lies within both line segments
+        return (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1);
+    }
+
 
     //test add patch to cave enter animation
     [HarmonyPatch(typeof(CaveEntranceCutscene), "OnEnterCaveEntrance")]
