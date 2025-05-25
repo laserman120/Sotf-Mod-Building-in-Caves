@@ -7,8 +7,14 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Reference Include="AstarPathfindingProject">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\AstarPathfindingProject.dll</HintPath>
+      </Reference>
       <Reference Include="Backtrace.Unity">
         <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\Backtrace.Unity.dll</HintPath>
+      </Reference>
+      <Reference Include="Drawing">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_Redloader\Game\Drawing.dll</HintPath>
       </Reference>
       <Reference Include="FMOD.Unity">
         <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\FMOD.Unity.dll</HintPath>
@@ -33,6 +39,9 @@
       </Reference>
       <Reference Include="LibNoise.Unity">
         <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\LibNoise.Unity.dll</HintPath>
+      </Reference>
+      <Reference Include="PackageTools">
+        <HintPath>D:\SteamLibrary\steamapps\common\Sons Of The Forest\_RedLoader\Game\PackageTools.dll</HintPath>
       </Reference>
       <Reference Include="RedLoader">
         <HintPath>$(GameDir)\_RedLoader\net6\RedLoader.dll</HintPath>
