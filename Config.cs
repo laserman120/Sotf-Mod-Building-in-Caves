@@ -1,3 +1,4 @@
+using AllowBuildInCaves.Harmony;
 using RedLoader;
 using RedLoader.Preferences;
 
@@ -12,7 +13,6 @@ public static class Config
     public static ConfigEntry<bool> KeepItemsInCutscene { get; private set; }
     public static ConfigEntry<bool> SnowFix { get; private set; }
     public static ConfigEntry<bool> EasyBunkers { get; private set; }
-    //public static KeybindConfigEntry ToggleKey { get; private set; }
     public static ConfigEntry<bool> ItemCollectUIFix { get; private set; }
 
     public static void Init()
@@ -43,12 +43,6 @@ public static class Config
            "Keep Logs or Stones when entering Caves or Bunkers",
            "This will give you the Logs or Stones back when entering a Cave or Bunker through the cutscene");
 
-        /*SnowFix = Category.CreateEntry(
-           "snow_fix",
-           true,
-           "Disables snow when inside a cave",
-           "Will disable the snow on builds when entering caves");
-        */
         EasyBunkers = Category.CreateEntry(
            "easy_bunkers",
            false,
@@ -60,12 +54,6 @@ public static class Config
            true,
            "Disable collect Items UI inside Caves",
            "Will remove the items to collect ui when entering a cave");
-
-        //ToggleKey = Category.CreateKeybindEntry(
-        //"toggle_key",
-        //EInputKey.numpadMinus,
-        // "Key to toggle the mod",
-        //"Does it matter at this point ffs");
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.
@@ -82,8 +70,8 @@ public static class Config
 
         //if (SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(false, true); }
         //if (!SnowFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.SnowFix(true, true); }
-        if(ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUiInCave(); }
-        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { AllowBuildInCaves.RefreshRequiredItemsUI(); }
+        if(ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { HarmonyPatches.RefreshRequiredItemsUiInCave(); }
+        if (!ItemCollectUIFix.Value && IsInCavesStateManager.IsInCaves) { HarmonyPatches.RefreshRequiredItemsUI(); }
 
     }
 }
