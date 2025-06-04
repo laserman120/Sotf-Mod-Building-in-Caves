@@ -97,8 +97,8 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Pathfinding.RecastGraph recastGraph = graphObject.TryCast<Pathfinding.RecastGraph>();
                 if (recastGraph == null) continue;
                 RLog.Msg($"Processing RecastGraph: '{recastGraph.name}'");
-                recastGraph.cellSize = 0.18f;
-                recastGraph.characterRadius = 0.5f;
+                recastGraph.cellSize = 0.15f;
+                recastGraph.characterRadius = 0.15f;
                 recastGraph.maxEdgeLength = 10f;
                 recastGraph.maxSlope = 48f;
                 recastGraph.minRegionSize = 10f;

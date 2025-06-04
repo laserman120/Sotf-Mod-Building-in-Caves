@@ -210,15 +210,8 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
         ForceActivateCaveCollision.ForceActivateCaveCollisions();
 
         bool EnableDebugDrawing = false;
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBEntrancePath, 0.8f, "CaveBEntranceMesh", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBExitPath, 0.8f, "CaveBExitMesh", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath1, 0.8f, "CaveBInsideMesh1", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath2, 0.8f, "CaveBInsideMesh2", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath3, 0.8f, "CaveBInsideMesh3", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath4, 0.8f, "CaveBInsideMesh4", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath5, 0.8f, "CaveBInsideMesh5", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath6, 0.8f, "CaveBInsideMesh6", false, EnableDebugDrawing);
-        CustomPathGeneration.GenerateCustomPath(CaveBPath.caveBInsidePath7, 0.8f, "CaveBInsideMesh7", false, EnableDebugDrawing);
+
+        CustomPathGeneration.ProcessAllCustomPaths(EnableDebugDrawing);
 
         //CreateTerrainHole(100, 150, new Vector3(1000f, 0f, 1000f), 0);
         CreateTerrainHole(4, 5, new Vector3(-423.24f, 0f, 1510.705f), 0);
@@ -256,7 +249,17 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
                 RenderTexture oldActive = RenderTexture.active; 
                 RenderTexture.active = holeProcessingRT;
 
-                GL.Clear(true, true, Color.white);
+                Texture existingHolesTexture = td.holesTexture;
+                if (existingHolesTexture != null)
+                {
+                    RLog.Msg("Existing holesTexture found. Blitting to processing RT.");
+                    Graphics.Blit(existingHolesTexture, holeProcessingRT);
+                }
+                else
+                {
+                    RLog.Msg("No existing holesTexture found or it's null. Clearing processing RT to 'all solid'.");
+                    GL.Clear(true, true, Color.white);
+                }
 
                 Material blackMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
                 blackMaterial.SetColor("_Color", Color.black);
@@ -287,11 +290,11 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
                 td.Internal_SyncHoles();
 
 
-                // 5. Restore previously active RenderTexture and release the temporary one
+                // Restore previously active RenderTexture and release the temporary one
                 RenderTexture.active = oldActive;
                 RenderTexture.ReleaseTemporary(holeProcessingRT);
 
-                if (blackMaterial != null) UnityEngine.Object.Destroy(blackMaterial); // Clean up the material if created here
+                if (blackMaterial != null) UnityEngine.Object.Destroy(blackMaterial);
 
                 break;
             }

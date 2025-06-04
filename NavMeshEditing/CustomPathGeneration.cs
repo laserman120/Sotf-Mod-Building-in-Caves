@@ -39,6 +39,43 @@ namespace AllowBuildInCaves.NavMeshEditing
     {
         public static List<Vector3> PathCreationPoints = new List<Vector3>();
 
+        public static void ProcessAllCustomPaths(bool showDebug)
+        {
+            var pathStorageTypes = typeof(CustomPathGeneration).Assembly.GetTypes() 
+                .Where(t => t.IsClass && t.Namespace == "AllowBuildInCaves.CaveCustomPathStorage" && t.Name.EndsWith("Path"));
+
+            var pathDefinitions = pathStorageTypes
+                .SelectMany(type => type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                    .Where(fieldInfo => fieldInfo.FieldType == typeof(List<PathPoint>))
+                    .Select(fieldInfo => new
+                    {
+                        PathList = (List<PathPoint>)fieldInfo.GetValue(null),
+                        FieldName = fieldInfo.Name, // This is the name like "caveBExitPath"
+                        ClassName = type.Name       // This is the name like "CaveBPath"
+                    }))
+                .ToList();
+
+            RLog.Msg("Found " + pathDefinitions.Count + " custom path lists to process.");
+
+            foreach (var definition in pathDefinitions)
+            {
+                List<PathPoint> pathPoints = definition.PathList;
+                string pathNameFromField = definition.FieldName; // e.g., "caveBExitPath"
+                string className = definition.ClassName;         // e.g., "CaveBPath"
+
+                if (pathPoints == null || pathPoints.Count < 2)
+                {
+                    RLog.Error($"Path points list for {className}.{pathNameFromField} is null or has less than 2 points, skipping.");
+                    continue;
+                }
+
+                string objectName = pathNameFromField;
+
+                RLog.Msg($"Processing custom path: {className}.{pathNameFromField}");
+                GenerateCustomPath(pathPoints, 0.5f, objectName, false, showDebug);
+            }
+        }
+
         public static bool GenerateCustomPath(List<PathPoint> IPoints, float backwardDistance, string objectName, bool blockNone, bool debugSpheres)
         {
             if (debugSpheres)

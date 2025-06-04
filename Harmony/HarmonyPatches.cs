@@ -142,17 +142,6 @@ namespace AllowBuildInCaves.Harmony
         }
 
 
-
-
-
-
-
-
-
-
-
-
-
         //SCUFFED TESTING
         
         [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TryAddNavLinkToTerrain))]
