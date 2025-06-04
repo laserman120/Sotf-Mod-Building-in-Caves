@@ -86,6 +86,27 @@ namespace AllowBuildInCaves.NavMeshEditing
             return true;
         }
 
+        public static void AdjustRecastGraphSettings()
+        {
+            RLog.Msg("Attempting to change RecastGraph settings for cave meshes...");
+            Il2CppSystem.Collections.IEnumerable graphs = AstarPath.active.data.FindGraphsOfType(Il2CppSystem.RuntimeType.GetType("Pathfinding.RecastGraph"));
+
+            foreach (Il2CppSystem.Object graphObject in graphs)
+            {
+                if (graphObject == null) continue;
+                Pathfinding.RecastGraph recastGraph = graphObject.TryCast<Pathfinding.RecastGraph>();
+                if (recastGraph == null) continue;
+                RLog.Msg($"Processing RecastGraph: '{recastGraph.name}'");
+                recastGraph.cellSize = 0.18f;
+                recastGraph.characterRadius = 0.5f;
+                recastGraph.maxEdgeLength = 10f;
+                recastGraph.maxSlope = 48f;
+                recastGraph.minRegionSize = 10f;
+                recastGraph.colliderRasterizeDetail = 1f;
+            }
+            RLog.Msg("RecastGraph settings adjusted for cave meshes. Creating meshes...");
+
+        }
 
         public static void GenerateCaveMeshes()
         {
@@ -218,6 +239,44 @@ namespace AllowBuildInCaves.NavMeshEditing
                 meshForGO.RecalculateBounds();
                 RLog.Msg($"  Mesh for GO '{meshForGO.name}' created. Its local bounds center: {meshForGO.bounds.center.ToString("F5")}");
 
+                //NEW TEST CODE ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                // --- 5. Setup GameObject with the SOLVED Transform to be SCANNED by RecastGraph ---
+                GameObject meshHolderGO = new GameObject($"ScannableCaveMesh_{originalGraph.name}"); // Renamed for clarity
+                meshHolderGO.transform.position = Vector3.zero;
+                meshHolderGO.transform.rotation = R_solved;
+                meshHolderGO.transform.localScale = Vector3.one; // Ensure localScale is one if graphDeclaredScale already handled scaling of vertices
+
+                // Add MeshFilter and assign the created mesh
+                MeshFilter meshFilter = meshHolderGO.AddComponent<MeshFilter>();
+                meshFilter.mesh = meshForGO;
+
+                // Add MeshCollider and assign the created mesh
+                // This is what the RecastGraph will typically scan if "Rasterize Colliders" is enabled.
+                // If "Rasterize Meshes" is enabled on the RecastGraph, it might pick up the MeshFilter directly,
+                // but having a MeshCollider is generally safer and more standard for RecastGraph input.
+                MeshCollider meshCollider = meshHolderGO.AddComponent<MeshCollider>();
+                meshCollider.sharedMesh = meshForGO;
+
+                // Set the layer of the GameObject so the RecastGraph scans it.
+                // Based on RecastGraph.mask = 71303168, Layer 22 or 26 are valid. Let's use 22.
+                // IMPORTANT: Make sure Layer 22 (or 26) exists and is appropriately named/used in your project context.
+                const int SCAN_LAYER = 26; // Or 22
+                meshHolderGO.layer = SCAN_LAYER;
+
+                RLog.Msg($"  Set up Scannable GameObject '{meshHolderGO.name}' on layer {SCAN_LAYER}.");
+                RLog.Msg($"    GO P: {meshHolderGO.transform.position.ToString("F3")}, GO R(Euler): {meshHolderGO.transform.rotation.eulerAngles.ToString("F3")}");
+
+                // Verification of chosen alignment points (this part remains useful)
+                Vector3 actual_W_A = meshHolderGO.transform.TransformPoint(SL_A);
+                RLog.Msg($"    Verify W_A (idx {idxA}): Target={W_A_target.ToString("F3")}, Actual={actual_W_A.ToString("F3")}, DiffMag={(W_A_target - actual_W_A).magnitude:F5}");
+                Vector3 actual_W_B = meshHolderGO.transform.TransformPoint(SL_B);
+                RLog.Msg($"    Verify W_B (idx {idxB}): Target={W_B_target.ToString("F3")}, Actual={actual_W_B.ToString("F3")}, DiffMag={(W_B_target - actual_W_B).magnitude:F5}");
+                Vector3 actual_W_C = meshHolderGO.transform.TransformPoint(SL_C);
+                RLog.Msg($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
+
+                navmeshesProcessed++;
+                /*
                 // --- 5. Setup GameObject with the SOLVED Transform ---
                 GameObject meshHolderGO = new GameObject($"ClonedNavMesh_{originalGraph.name}");
                 meshHolderGO.transform.position = T_solved;
@@ -252,9 +311,15 @@ namespace AllowBuildInCaves.NavMeshEditing
                 RLog.Msg($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
 
                 navmeshesProcessed++;
+                */
             }
 
-            if (navmeshesProcessed > 0) { RLog.Msg($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); AstarPath.active.FlushGraphUpdates(); }
+            if (navmeshesProcessed > 0) { 
+                RLog.Msg($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
+                AstarPath.active.FlushGraphUpdates(); 
+                RLog.Msg("Rescanning the AstarPath...");
+                AstarPath.active.Scan();
+            }
             else { RLog.Msg("No NavMeshGraphs were processed."); }
         }
     }

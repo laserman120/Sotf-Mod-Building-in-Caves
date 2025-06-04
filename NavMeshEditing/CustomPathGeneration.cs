@@ -10,16 +10,44 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static Sons.Ai.Vail.VailWorldPaths;
+using HarmonyLib;
+using static UnityEngine.ParticleSystem.PlaybackState;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.Localization.SmartFormat.PersistentVariables;
+using SonsSdk;
+using UnityEngine.UIElements;
+using TheForest.Utils;
+using System.Globalization;
+using SonsSdk.Attributes;
 
 namespace AllowBuildInCaves.NavMeshEditing
 {
-    internal class CustomPathGeneration
+
+    public struct PathPoint
     {
-        public static bool GenerateMeshData(Vector3[] IPoints, float forwardDistance, float backwardDistance, string objectName, bool blockNone)
+        public Vector3 Position;
+        public float Width;
+
+        public PathPoint(Vector3 position, float width)
         {
+            Position = position;
+            Width = width;
+        }
+    }
+    internal static class CustomPathGeneration
+    {
+        public static List<Vector3> PathCreationPoints = new List<Vector3>();
+
+        public static bool GenerateCustomPath(List<PathPoint> IPoints, float backwardDistance, string objectName, bool blockNone, bool debugSpheres)
+        {
+            if (debugSpheres)
+            {
+                NavMeshEditing.CustomPathGeneration.DebugPlaceSpheres(IPoints, 0.3f, Color.yellow, "_DebugPathPoints" + objectName);
+            }
 
             RLog.Msg("Attempting to create nav mesh link for " + objectName);
-            if (IPoints.Length < 2)
+            if (IPoints.Count < 2)
             {
                 RLog.Error(objectName + " At least 2 points are required to create a navmesh line.");
                 return false;
@@ -31,202 +59,276 @@ namespace AllowBuildInCaves.NavMeshEditing
             Il2CppSystem.Collections.Generic.List<int> allIndices = new Il2CppSystem.Collections.Generic.List<int>();
 
             // Handle the first IPoint
-            Vector3 firstDirection = (IPoints[1] - IPoints[0]).normalized;
+            Vector3 firstPos = IPoints[0].Position;
+            float firstHalfWidth = IPoints[0].Width / 2f;
+            Vector3 secondPos = IPoints[1].Position;
+
+            Vector3 firstDirection = (secondPos - firstPos).normalized;
             Vector3 firstPerpendicular = Vector3.Cross(firstDirection, Vector3.up).normalized;
             if (firstPerpendicular == Vector3.zero)
             {
                 firstPerpendicular = Vector3.Cross(firstDirection, Vector3.forward).normalized;
             }
-            vertices.Add(IPoints[0] - firstPerpendicular * forwardDistance); // Point 1
-            vertices.Add(IPoints[0] + firstPerpendicular * forwardDistance); // Point 2
+            vertices.Add(firstPos - firstPerpendicular * firstHalfWidth); // Vertex 0
+            vertices.Add(firstPos + firstPerpendicular * firstHalfWidth); // Vertex 1
 
-            // Vertices Calculation
-            for (int i = 1; i < IPoints.Length - 1; i++)
+            // Vertices Calculation for intermediate points
+            // For IPoint[j] (where j from 1 to IPoints.Count-2), we add 3 vertices:
+            // 1. Outer point
+            // 2. Backward point towards next IPoint (p3_adj)
+            // 3. Backward point towards previous IPoint (p1_adj)
+            for (int i = 1; i < IPoints.Count - 1; i++)
             {
-                Vector3 p1 = new Vector3(IPoints[i - 1].x, IPoints[i].y, IPoints[i - 1].z);
-                Vector3 p2 = IPoints[i];
-                Vector3 p3 = new Vector3(IPoints[i + 1].x, IPoints[i].y, IPoints[i + 1].z);
+                Vector3 prevPos_actual = IPoints[i - 1].Position;
+                Vector3 currentPos_actual = IPoints[i].Position;
+                Vector3 nextPos_actual = IPoints[i + 1].Position;
+                float currentHalfWidth = IPoints[i].Width / 2f;
 
-                // Calculate the normal of the plane
-                Vector3 normal = Vector3.Cross(p1 - p2, p3 - p2).normalized;
+                // p1, p2, p3 are for bisector calculation, projected onto currentPos_actual.y plane
+                Vector3 p1_proj = new Vector3(prevPos_actual.x, currentPos_actual.y, prevPos_actual.z);
+                Vector3 p2_proj = currentPos_actual; // This is the current IPoint's position
+                Vector3 p3_proj = new Vector3(nextPos_actual.x, currentPos_actual.y, nextPos_actual.z);
 
-                // Calculate the angle between IPoint 1 and 3
-                float angle = Vector3.Angle(p1 - p2, p3 - p2);
-                Vector3 bisector = ((p1 - p2).normalized + (p3 - p2).normalized).normalized;
+                Vector3 planeNormal = Vector3.Cross(p1_proj - p2_proj, p3_proj - p2_proj).normalized;
+                if (planeNormal == Vector3.zero)
+                { // Fallback for collinear points on the calculation plane
+                    Vector3 tangent = (p3_proj - p1_proj).normalized;
+                    planeNormal = Vector3.Cross(tangent, Vector3.up).normalized;
+                    if (planeNormal == Vector3.zero) planeNormal = Vector3.Cross(tangent, Vector3.forward).normalized;
+                    if (planeNormal == Vector3.zero) planeNormal = Vector3.up; // Absolute fallback
+                }
 
-                // Project the bisector onto the plane
-                Vector3 projectedBisector = bisector - Vector3.Dot(bisector, normal) * normal;
+                Vector3 bisectorDirInput1 = (p1_proj - p2_proj).normalized;
+                Vector3 bisectorDirInput2 = (p3_proj - p2_proj).normalized;
+                Vector3 bisectorSum = bisectorDirInput1 + bisectorDirInput2;
 
-                // Place a point along the projected bisector (Point 3, 6, 9, etc.)
-                vertices.Add(p2 + projectedBisector.normalized * forwardDistance);
-
-                // Draw imaginary line from IPoint3 to IPoint2 and place a point (Point 4, 7, 10, etc.)
-                vertices.Add(p2 + (p2 - p3).normalized * backwardDistance);
-
-                // Draw imaginary line from IPoint1 to IPoint2 and place a point (Point 5, 8, etc.)
-                vertices.Add(p2 + (p2 - p1).normalized * backwardDistance);
-            }
-
-            // Handle the last IPoint
-            Vector3 lastDirection = (IPoints[IPoints.Length - 2] - IPoints[IPoints.Length - 1]).normalized;
-            Vector3 lastPerpendicular = Vector3.Cross(lastDirection, Vector3.up).normalized;
-            if (lastPerpendicular == Vector3.zero)
-            {
-                lastPerpendicular = Vector3.Cross(lastDirection, Vector3.forward).normalized;
-            }
-            vertices.Add(IPoints[IPoints.Length - 1] + lastPerpendicular * forwardDistance); // Point 13
-            vertices.Add(IPoints[IPoints.Length - 1] - lastPerpendicular * forwardDistance); // Point 12
-
-            //Triangle calculation
-            for (int i = 1; i < IPoints.Length - 1; i++)
-            {
-                if (i == 1) // Special handling for the second IPoint (since we start at i = 1)
+                Vector3 projectedBisector;
+                if (bisectorSum.sqrMagnitude < 0.0001f) // Inputs to bisector are nearly opposite (collinear segment)
                 {
-                    triangles.Add(0);     // 0, 1, 2 
-                    triangles.Add(2);
-                    triangles.Add(1);
-
-                    triangles.Add(1);     // 2, 3, 1 
-                    triangles.Add(2);
-                    triangles.Add(3);
+                    // Perpendicular to the segment direction, on the p2_proj plane
+                    projectedBisector = Vector3.Cross((p3_proj - p1_proj).normalized, planeNormal).normalized;
                 }
                 else
                 {
-                    int baseIndex = (i - 1) * 3; // 3 vertices per IPoint
-                    if (!DoLinesIntersect(vertices[baseIndex - 1], vertices[baseIndex + 2], vertices[baseIndex + 1], vertices[baseIndex + 3]))
-                    {
-                        //If they do NOT intersect
-                        triangles.Add(baseIndex + 1);
-                        triangles.Add(baseIndex + 2);
-                        triangles.Add(baseIndex + 3);
-
-                        triangles.Add(baseIndex - 1);
-                        triangles.Add(baseIndex + 2);
-                        triangles.Add(baseIndex + 1);
-
-
-                    }
-                    else
-                    {
-                        //If they DO intersect
-                        triangles.Add(baseIndex - 1);
-                        triangles.Add(baseIndex + 3);
-                        triangles.Add(baseIndex + 2);
-
-                        triangles.Add(baseIndex - 1);
-                        triangles.Add(baseIndex + 2);
-                        triangles.Add(baseIndex + 1);
-                    }
-
-
-
-                    //WINDING ORDER COUNTER CLOCKWISE!
-                    // Form triangles 
-                    triangles.Add(baseIndex - 1);
-                    triangles.Add(baseIndex + 1);
-                    triangles.Add(baseIndex);
+                    projectedBisector = bisectorSum.normalized;
+                    // Project onto the plane defined by p2_proj and planeNormal (effectively removing component along planeNormal)
+                    projectedBisector = (projectedBisector - Vector3.Dot(projectedBisector, planeNormal) * planeNormal).normalized;
+                }
+                if (projectedBisector.sqrMagnitude < 0.0001f)
+                { // Fallback if projection failed or was zero
+                    projectedBisector = Vector3.Cross((p2_proj - p1_proj).normalized, planeNormal).normalized; // Perpendicular to incoming segment
+                    if (projectedBisector.sqrMagnitude < 0.0001f) projectedBisector = Vector3.right; // Absolute fallback
                 }
 
 
+                // Vertex order for each intermediate IPoint's triplet:
+                // 1. Outer point (along bisector)
+                vertices.Add(p2_proj + projectedBisector * currentHalfWidth);
+                // 2. "Backward" point towards next IPoint (p3_proj direction from p2_proj)
+                vertices.Add(p2_proj + (p2_proj - p3_proj).normalized * backwardDistance);
+                // 3. "Backward" point towards previous IPoint (p1_proj direction from p2_proj)
+                vertices.Add(p2_proj + (p2_proj - p1_proj).normalized * backwardDistance);
             }
 
-            // Form triangles for the last segment (adjust indices)
-            int lastBaseIndex = (IPoints.Length - 2) * 3;
-            if (!DoLinesIntersect(vertices[lastBaseIndex - 1], vertices[lastBaseIndex + 2], vertices[lastBaseIndex + 1], vertices[lastBaseIndex + 3]))
+            // Handle the last IPoint
+            Vector3 lastPos = IPoints[IPoints.Count - 1].Position;
+            float lastHalfWidth = IPoints[IPoints.Count - 1].Width / 2f;
+            Vector3 secondToLastPos = IPoints[IPoints.Count - 2].Position;
+
+            // Original logic for lastPerpendicular used (Prev - Last).normalized
+            // To be consistent with firstPerpendicular (Next - First), let's use (Last - Prev).normalized
+            Vector3 lastSegmentDirection = (lastPos - secondToLastPos).normalized;
+            Vector3 lastPerpendicular = Vector3.Cross(lastSegmentDirection, Vector3.up).normalized;
+            if (lastPerpendicular == Vector3.zero)
             {
-                //If they do NOT intersect
-                triangles.Add(lastBaseIndex + 1);
-                triangles.Add(lastBaseIndex + 2);
-                triangles.Add(lastBaseIndex + 3);
-
-                triangles.Add(lastBaseIndex - 1);
-                triangles.Add(lastBaseIndex + 2);
-                triangles.Add(lastBaseIndex + 1);
+                lastPerpendicular = Vector3.Cross(lastSegmentDirection, Vector3.forward).normalized;
+            }
+            // Original code added + then -, which corresponds to Right then Left if perpendicular points right.
+            vertices.Add(lastPos + lastPerpendicular * lastHalfWidth); // Vertex (vertices.Count-2 after adding)
+            vertices.Add(lastPos - lastPerpendicular * lastHalfWidth); // Vertex (vertices.Count-1 after adding)
 
 
+            // --- TRIANGLE CALCULATION (Adhering to user's original logic) ---
+            if (IPoints.Count == 2)
+            {
+                // Special simple case for only two points (one segment)
+                // V0, V1 are from IPoints[0]. V2, V3 are from IPoints[1].
+                // V0=StartL, V1=StartR, V2=EndR, V3=EndL (based on my vertex adding order)
+                triangles.Add(0); triangles.Add(2); triangles.Add(1); // StartL, EndR, StartR
+                triangles.Add(0); triangles.Add(3); triangles.Add(2); // StartL, EndL, EndR
             }
             else
             {
-                //If they DO intersect
-                triangles.Add(lastBaseIndex - 1);
-                triangles.Add(lastBaseIndex + 3);
-                triangles.Add(lastBaseIndex + 2);
+                // Triangle loop for intermediate segments
+                // i is the index of the CURRENT IPoint being processed (from 1 to Count-2)
+                // It defines triangles connecting IPoint[i-1] to IPoint[i]
+                for (int i = 1; i < IPoints.Count - 1; i++)
+                {
+                    if (i == 1) // Triangles for segment between IPoints[0] and IPoints[1]
+                    {
 
-                triangles.Add(lastBaseIndex - 1);
-                triangles.Add(lastBaseIndex + 2);
-                triangles.Add(lastBaseIndex + 1);
+                        if (DoLinesIntersect(vertices[1], vertices[2], vertices[0], vertices[3]))
+                        {
+                            RLog.Warning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect.");
+                            triangles.Add(0); triangles.Add(2); triangles.Add(3);
+                            triangles.Add(0); triangles.Add(3); triangles.Add(1);
+                        }
+                        else
+                        {
+                            RLog.Warning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect. Using alternative triangulation.");
+                            triangles.Add(0); triangles.Add(2); triangles.Add(1);
+                            triangles.Add(0); triangles.Add(2); triangles.Add(3);
+
+                        }
+                    }
+                    else // Triangles for segment between IPoints[i-1] and IPoints[i], where i > 1
+                    {
+                        // baseIndex points to the "BackToNext" vertex of IPoints[i-1]
+                        // Vertices for IPoints[i-1] start at 2 + ( (i-1) - 1 )*3
+                        // Outer for IPoints[i-1] is index: 2 + (i-2)*3 + 0
+                        // BackToNext for IPoints[i-1] is index: 2 + (i-2)*3 + 1  <- This is baseIndex
+                        // BackToPrev for IPoints[i-1] is index: 2 + (i-2)*3 + 2
+                        int baseIndex = 2 + (i - 2) * 3 + 1;
+
+                        // Vertices for IPoints[i]
+                        // Outer for IPoints[i] is index: 2 + (i-1)*3 + 0
+                        // BackToNext for IPoints[i] is index: 2 + (i-1)*3 + 1
+                        // BackToPrev for IPoints[i] is index: 2 + (i-1)*3 + 2
+                        int currOuterIdx = 2 + (i - 1) * 3 + 0;
+                        int currBackToNextIdx = 2 + (i - 1) * 3 + 1;
+                        // int currBackToPrevIdx = 2 + (i-1)*3 + 2; // Not used in user's DoLinesIntersect call for this quad
+
+                        // User's original DoLinesIntersect parameters:
+                        // vertices[baseIndex - 1] => Prev.Outer
+                        // vertices[baseIndex + 2] => Curr.Outer (this is currOuterIdx)
+                        // vertices[baseIndex + 1] => Prev.BackToPrev
+                        // vertices[baseIndex + 3] => Curr.BackToNext (this is currBackToNextIdx)
+                        if (!DoLinesIntersect(vertices[baseIndex - 1], vertices[currOuterIdx], vertices[baseIndex + 1], vertices[currBackToNextIdx]))
+                        {
+                            //If they do NOT intersect
+                            triangles.Add(baseIndex + 1);       // Prev.BackToPrev
+                            triangles.Add(currOuterIdx);        // Curr.Outer
+                            triangles.Add(currBackToNextIdx);   // Curr.BackToNext
+
+                            triangles.Add(baseIndex - 1);       // Prev.Outer
+                            triangles.Add(currOuterIdx);        // Curr.Outer
+                            triangles.Add(baseIndex + 1);       // Prev.BackToPrev
+                        }
+                        else
+                        {
+                            //If they DO intersect
+                            triangles.Add(baseIndex - 1);       // Prev.Outer
+                            triangles.Add(currBackToNextIdx);   // Curr.BackToNext
+                            triangles.Add(currOuterIdx);        // Curr.Outer
+
+                            // User's original second triangle for intersecting case
+                            triangles.Add(baseIndex - 1);       // Prev.Outer
+                            triangles.Add(currOuterIdx);        // Curr.Outer
+                            triangles.Add(baseIndex + 1);       // Prev.BackToPrev
+                        }
+
+                        // Fan triangle for IPoints[i-1]'s joint (user's original order)
+                        triangles.Add(baseIndex - 1); // Prev.Outer
+                        triangles.Add(baseIndex + 1); // Prev.BackToPrev
+                        triangles.Add(baseIndex);     // Prev.BackToNext
+                    }
+                }
+
+                // Triangles for the last segment (connecting IPoints[Count-2] to IPoints[Count-1])
+                // This logic is equivalent to the "else" block of the loop above,
+                // where IPoint[Count-2] is "prev" and IPoint[Count-1]'s two vertices are "curr"
+
+                // lastBaseIndex points to "BackToNext" vertex of IPoints[Count-2] (the second to last IPoint)
+                // IPoint_idx = Count-2. prev_IPoint_idx for loop was i-1. current_IPoint_idx was i.
+                // Here, IPoints[Count-2] is the "previous" point for this segment.
+                // Its "BackToNext" vertex index:
+                int lastBaseIndex = 2 + ((IPoints.Count - 2) - 1) * 3 + 1;
+
+                // Final two vertices (from IPoints[Count-1])
+                int finalV1_idx = vertices.Count - 2; // e.g., EndR
+                int finalV2_idx = vertices.Count - 1; // e.g., EndL
+
+                // User's original DoLinesIntersect for last segment:
+                // vertices[lastBaseIndex - 1] => PrevLast.Outer
+                // vertices[lastBaseIndex + 2] => This was Final_V1 in user's mapping.
+                // vertices[lastBaseIndex + 1] => PrevLast.BackToPrev
+                // vertices[lastBaseIndex + 3] => This was Final_V2 in user's mapping.
+                // Note: My current lastBaseIndex points to PrevLast.BackToNext.
+                // PrevLast.Outer is lastBaseIndex-1. PrevLast.BackToPrev is lastBaseIndex+1.
+                // So the parameters match up with finalV1_idx and finalV2_idx.
+                if (!DoLinesIntersect(vertices[lastBaseIndex - 1], vertices[finalV1_idx], vertices[lastBaseIndex + 1], vertices[finalV2_idx]))
+                {
+                    //If they do NOT intersect
+                    triangles.Add(lastBaseIndex + 1); // PrevLast.BackToPrev
+                    triangles.Add(finalV1_idx);       // Final_V1
+                    triangles.Add(finalV2_idx);       // Final_V2
+
+                    triangles.Add(lastBaseIndex - 1); // PrevLast.Outer
+                    triangles.Add(finalV1_idx);       // Final_V1
+                    triangles.Add(lastBaseIndex + 1); // PrevLast.BackToPrev
+                }
+                else
+                {
+                    //If they DO intersect
+                    triangles.Add(lastBaseIndex - 1); // PrevLast.Outer
+                    triangles.Add(finalV2_idx);       // Final_V2
+                    triangles.Add(finalV1_idx);       // Final_V1
+
+                    // User's original second triangle
+                    triangles.Add(lastBaseIndex - 1); // PrevLast.Outer
+                    triangles.Add(finalV1_idx);       // Final_V1
+                    triangles.Add(lastBaseIndex + 1); // PrevLast.BackToPrev
+                }
+
+                // Fan triangle for IPoints[Count-2]'s joint (user's original order)
+                triangles.Add(lastBaseIndex - 1); // PrevLast.Outer
+                triangles.Add(lastBaseIndex + 1); // PrevLast.BackToPrev
+                triangles.Add(lastBaseIndex);     // PrevLast.BackToNext
             }
 
-            triangles.Add(lastBaseIndex - 1);
-            triangles.Add(lastBaseIndex + 1);
-            triangles.Add(lastBaseIndex);
 
+            foreach (var vertex in vertices) { allVertices.Add(vertex); }
+            foreach (int index in triangles) { allIndices.Add(index); }
 
-            // Add the vertices and indices to the combined lists
-            foreach (var vertex in vertices)
-            {
-                allVertices.Add(vertex);
-            }
-            for (int j = 0; j < triangles.Count; j++)
-            {
-                allIndices.Add(triangles[j]); // No need for vertexOffset here
-            }
-
-            // --- Create GameObject and component ---
-
-            GameObject navMeshObject = new GameObject("_CustomNavMeshLine-" + objectName + "-First");
+            GameObject navMeshObject = new GameObject("_CustomNavMeshLine-" + objectName);
             NavMeshCustomMeshAdd navMeshAdder = navMeshObject.AddComponent<NavMeshCustomMeshAdd>();
-            // --- Find the correct NavMesh to attach to ---
-            Vector3 firstPoint = IPoints[0];
-            // --- Apply the combined navmesh ---
-            ApplyNavMeshAdd(navMeshAdder, allVertices, allIndices, 1); ;
-            // --- Nav link creation (only for the first point) ---
-            bool isConnected = false;
-            Vector3 connectionPoint = Vector3.zero;
-            // Multiple connection attempts with raycasting from the FIRST point
+            navMeshAdder._navLinkMaxDistance = 0.5f;
+            ApplyNavMeshAdd(navMeshAdder, allVertices, allIndices, 1); // Default navGraphMask = 1
+
+
+            //Connect to terrain navmesh
+            Vector3 firstIPointPos = IPoints[0].Position;
+            bool isConnectedFirst = false;
             for (float offset = 0.05f; offset <= 0.3f; offset += 0.05f)
             {
-                connectionPoint = firstPoint + Vector3.down * offset;
-
-                if (isConnected = TryAddNavLinkToTerrain(firstPoint, connectionPoint, 1, navMeshAdder))
+                Vector3 connectionPointStart = firstIPointPos + Vector3.down * offset;
+                if (TryAddNavLinkToTerrain(firstIPointPos, connectionPointStart, 1, navMeshAdder))
                 {
-                    RLog.Msg(objectName + " Found First connection Point");
-                    isConnected = true;
+                    RLog.Msg(objectName + " Found First connection Point with mask " + 1);
+                    isConnectedFirst = true;
                     break;
                 }
-            }
-            if (!isConnected)
-            {
-                RLog.Error(objectName + " Failed to connect to terrain navmesh on first point");
-                return false;
-            }
 
-            // --- REPEAT FOR LAST POINT ---
-            Vector3 lastPoint = IPoints[0];
+            }
+            if (!isConnectedFirst) RLog.Error(objectName + " Failed to connect to terrain navmesh on first point");
+
+            Vector3 lastIPointPos = IPoints[IPoints.Count - 1].Position;
             bool isConnectedLast = false;
-            Vector3 connectionPointLast = Vector3.zero;
-            // Multiple connection attempts with raycasting from the LAST point
             for (float offset = 0.05f; offset <= 0.3f; offset += 0.05f)
             {
-                connectionPointLast = lastPoint + Vector3.down * offset;
-
-                if (isConnectedLast = TryAddNavLinkToTerrain(lastPoint, connectionPointLast, 1, navMeshAdder))
+                Vector3 connectionPointEnd = lastIPointPos + Vector3.down * offset;
+                if (TryAddNavLinkToTerrain(lastIPointPos, connectionPointEnd, 1, navMeshAdder))
                 {
-                    RLog.Msg(objectName + " Found Last connection Point");
+                    RLog.Msg(objectName + " Found Last connection Point with mask " + 1);
                     isConnectedLast = true;
                     break;
                 }
             }
-            if (!isConnectedLast)
-            {
-                RLog.Error(objectName + " Failed to connect to terrain navmesh on last point");
-                return false;
-            }
 
+            if (!isConnectedLast) RLog.Error(objectName + " Failed to connect to terrain navmesh on last point! Position: " + lastIPointPos.ToString());
 
             return true;
         }
-
 
         static bool DoLinesIntersect(Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4)
         {
@@ -255,23 +357,22 @@ namespace AllowBuildInCaves.NavMeshEditing
         }
 
         private static List<AreaMask> AllAreaMasks = new List<AreaMask>
-    {
-        AreaMask.None,
-        AreaMask.CaveA,
-        AreaMask.CaveB,
-        AreaMask.CaveC,
-        AreaMask.CaveD,
-        AreaMask.CaveF,
-        AreaMask.CaveG,
-        AreaMask.BunkerA,
-        AreaMask.BunkerB,
-        AreaMask.BunkerC,
-        AreaMask.BunkerE,
-        AreaMask.BunkerF,
-        AreaMask.BunkerG
-    };
+        {
+            AreaMask.CaveA,
+            AreaMask.CaveB,
+            AreaMask.CaveC,
+            AreaMask.CaveD,
+            AreaMask.CaveF,
+            AreaMask.CaveG,
+            AreaMask.BunkerA,
+            AreaMask.BunkerB,
+            AreaMask.BunkerC,
+            AreaMask.BunkerE,
+            AreaMask.BunkerF,
+            AreaMask.BunkerG
+        };
 
-        public static int TryToFindNavMeshPoint(Vector3 input, bool blockNone)
+        /*public static int TryToFindNavMeshPoint(Vector3 input, bool blockNone)
         {
             bool flag;
             float shortestFoundDistance = 9999f;
@@ -300,15 +401,17 @@ namespace AllowBuildInCaves.NavMeshEditing
             }
             RLog.Msg("Closest NavMesh Found: " + closestNavMeshFound + " with distance: " + shortestFoundDistance);
             return closestNavMeshFound;
-        }
+        }*/
 
         public static bool TryAddNavLinkToTerrain(Vector3 linkPoint, Vector3 checkPoint, int navGraphMask, NavMeshCustomMeshAdd navMeshAdder)
         {
             bool flag;
             Vector3 closestNavMeshPoint = AiUtilities.GetClosestNavMeshPoint(checkPoint, navGraphMask, out flag);
+            RLog.Msg("Found closest nav mesh point at: " + closestNavMeshPoint + " flag: " + flag);
             navMeshAdder._navLinkTests.Add(new NavMeshCustomMeshAdd.NavLinkLocations(linkPoint, checkPoint, checkPoint, false, false, false, false));
             if (!flag || Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f) > navMeshAdder._navLinkMaxDistance)
             {
+                RLog.Msg("failed to add navlink due to YMargin distance of: " + Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f));
                 return false;
             }
             GameObject gameObject = new GameObject("start");
@@ -362,5 +465,75 @@ namespace AllowBuildInCaves.NavMeshEditing
             navMeshCustomMeshAdd._navMeshAdd.RebuildMesh();
             navMeshCustomMeshAdd._navMeshAdd.enabled = true;
         }
+
+        public static void DebugPlaceSpheres(List<PathPoint> iPoints, float sphereDiameter = 0.2f, Color? sphereColor = null, string parentObjectName = "_DebugPathPoints")
+        {
+            if (iPoints == null || iPoints.Count == 0)
+            {
+                RLog.Warning("DebugPlaceSpheres: No points provided to visualize.");
+                return;
+            }
+
+            Transform parentTransform = null;
+            if (!string.IsNullOrEmpty(parentObjectName))
+            {
+                GameObject parentObject = GameObject.Find(parentObjectName);
+                if (parentObject == null)
+                {
+                    parentObject = new GameObject(parentObjectName);
+                }
+                parentTransform = parentObject.transform;
+            }
+
+            Color colorToUse = sphereColor ?? Color.yellow; // Default to yellow if no color is specified
+
+            for (int i = 0; i < iPoints.Count; i++)
+            {
+                PathPoint currentPoint = iPoints[i];
+                var cube = DebugTools.CreateCuboid(currentPoint.Position, new Vector3(0.3f, 0.3f, 0.3f), Color.yellow, false);
+
+                // Name the sphere for easier identification in the hierarchy
+                cube.name = $"DebugSphere_Point_{i}_Pos({currentPoint.Position.x:F1},{currentPoint.Position.y:F1},{currentPoint.Position.z:F1})_Width({currentPoint.Width:F1})";
+
+                if (parentTransform != null)
+                {
+                    cube.transform.SetParent(parentTransform, true);
+                }
+            }
+            RLog.Msg($"DebugPlaceSpheres: Placed {iPoints.Count} debug spheres" + (parentTransform != null ? $" under '{parentObjectName}'." : "."));
+        }
+
+        public static void LogCurrentPositionData()
+        {
+            PathCreationPoints.Add(new Vector3(LocalPlayer._instance.transform.position.x, (LocalPlayer._instance.transform.position.y - 1f), LocalPlayer._instance.transform.position.z));
+            SonsTools.ShowMessage("Added point at current position");
+        }
+
+        [DebugCommand("resetcurrentpathpoints")]
+        private static void ResetCurrentPathPoints()
+        {
+            PathCreationPoints = new List<Vector3>();
+            SonsTools.ShowMessage("Reset current path points");
+        }
+
+        [DebugCommand("printpathpoints")]
+        private static void PrintPathPoints()
+        {
+            if (PathCreationPoints.Count == 0)
+            {
+                SonsTools.ShowMessage("No path points to print.");
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Current Path Points:");
+            foreach (var point in PathCreationPoints)
+            {
+                sb.AppendLine($"new NavMeshEditing.PathPoint(new Vector3({point.x.ToString(CultureInfo.InvariantCulture)}f, {point.y.ToString(CultureInfo.InvariantCulture)}f, {point.z.ToString(CultureInfo.InvariantCulture)}f),");
+            }
+            RLog.Msg("" + sb.ToString() + "");
+        }
     }
+
+
 }

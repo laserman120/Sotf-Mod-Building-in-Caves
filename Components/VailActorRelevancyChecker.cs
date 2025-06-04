@@ -2,6 +2,7 @@
 using Pathfinding;
 using RedLoader;
 using Sons.Ai.Vail;
+using Sons.Areas;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +28,8 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
         {
             vailActor = GetComponent<VailActor>();
         }
+
+        SpecialyActorAdjustments();
     }
 
     private void Start()
@@ -34,6 +37,18 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
         if (vailActor == null)
         {
             vailActor = GetComponent<VailActor>();
+        }
+
+        SpecialyActorAdjustments();
+    }
+
+    private void SpecialyActorAdjustments()
+    {
+        if(vailActor.TypeId == VailActorTypeId.Robby)
+        {
+            vailActor._defaultMoveSettings._keepAboveTerrain = false;
+            DynamicBoneCollider boneCollider = GetComponent<DynamicBoneCollider>();
+            boneCollider.m_Height = 1f;
         }
     }
 
@@ -54,6 +69,8 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
 
         Il2CppSystem.Collections.Generic.List<PlayerLocation.ViewerInfo> viewerList = PlayerLocation.GetViewerList();
         bool isRelevant = false;
+        bool isRelevantMask = false;
+
         foreach (PlayerLocation.ViewerInfo viewerInfo in viewerList)
         {
             Vector3 position = viewerInfo.Position;
@@ -63,19 +80,75 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
             {
                 break;
             }
+
+            AreaMask viewerAreaMask = VailWorldSimulation.GetViewerAreaMask(viewerInfo.AreaMask);
+            isRelevantMask = viewerAreaMask.Matches(vailActor._worldSimActor._areaMask);
         }
 
-        if (isRelevant && vailActor._allowDeactivate)
+        if (isRelevantMask)
         {
-            vailActor._allowDeactivate = false;
-            vailActor._drownDepth = 1000f; // Set a very high drown depth to prevent drowning in caves
+            //Player is INSIDE the same cave as Actor
+            vailActor._drownDepth = 2f;
             vailActor._worldSimActor.SetKeepAboveTerrain(false);
-        }
-        else if (!isRelevant && !vailActor._allowDeactivate)
+        } else
         {
-            vailActor._allowDeactivate = true;
-            vailActor._drownDepth = 2f; // Reset drown depth to default
-            vailActor._worldSimActor.SetKeepAboveTerrain(true);
+            //Player is NOT inside the same cave as Actor
+            if (isRelevant && vailActor._allowDeactivate)
+            {
+                //Player is outside the cave, but actor is still close enough to stay active
+                vailActor._allowDeactivate = false; //Prevent disabling while close enough
+                //Only change drown depth if the actor is spawned inside the cave
+                if(vailActor._worldSimActor._areaMask != AreaMask.None)
+                {
+                    vailActor._drownDepth = 1000f; // Set a very high drown depth to prevent drowning in caves
+                    vailActor._worldSimActor.SetKeepAboveTerrain(false);
+                }
+            }
+            else if (!isRelevant && !vailActor._allowDeactivate)
+            {
+                //Player is outside the cave and far enough away to be no longer relevant
+                vailActor._allowDeactivate = true;
+                //Only change drown depth if the actor is spawned inside the cave
+                if (vailActor._worldSimActor._areaMask != AreaMask.None)
+                {
+                    vailActor._drownDepth = 2f; // Reset drown depth to default
+                    vailActor._worldSimActor.SetKeepAboveTerrain(true);
+                }
+            }
         }
+    }
+}
+
+
+[RegisterTypeInIl2Cpp]
+public class SpecialActorCaveFixes : MonoBehaviour
+{
+    public VailActor vailActor;
+
+    private void Awake()
+    {
+        if (vailActor == null)
+        {
+            vailActor = GetComponent<VailActor>();
+        }
+
+        SpecialyActorAdjustments();
+    }
+
+    private void Start()
+    {
+        if (vailActor == null)
+        {
+            vailActor = GetComponent<VailActor>();
+        }
+
+        SpecialyActorAdjustments();
+    }
+
+    private void SpecialyActorAdjustments()
+    {
+        vailActor._defaultMoveSettings._keepAboveTerrain = false;
+        DynamicBoneCollider boneCollider = GetComponent<DynamicBoneCollider>();
+        boneCollider.m_Height = 1f;
     }
 }

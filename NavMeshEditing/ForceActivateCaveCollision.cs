@@ -1,4 +1,6 @@
-﻿using RedLoader;
+﻿using Endnight.Types;
+using Endnight.Utilities;
+using RedLoader;
 using SonsSdk;
 using System;
 using System.Collections.Generic;
@@ -6,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.InputSystem.HID;
 
 namespace AllowBuildInCaves.NavMeshEditing
 {
@@ -46,6 +49,21 @@ namespace AllowBuildInCaves.NavMeshEditing
                             if (child.name.ToLower().Contains("collision"))
                             {
                                 RLog.Msg(potentialParent.name + "  -> Found child: " + child.name);
+
+                                //special cases
+                                if (potentialParent.name.StartsWith("CaveBInternal-Any"))
+                                {
+                                    ObjectDestroyer destroyer = child.gameObject.GetOrAddComponent<ObjectDestroyer>();
+                                    destroyer.ObjectNamesForDestruction = new List<string>
+                                    {
+                                        "CaveCollisionCliffsD"
+                                    };
+
+                                }
+                                
+
+
+
                                 child.SetParent(SpecificCaveHolder.transform, true); // Keep world position
                             }
                         }
@@ -66,6 +84,49 @@ namespace AllowBuildInCaves.NavMeshEditing
                 }
             }
             RLog.Msg("Cave Collision search complete");
+        }
+    }
+}
+
+[RegisterTypeInIl2Cpp]
+public class ObjectDestroyer : MonoBehaviour
+{
+    public List<string> ObjectNamesForDestruction;
+    private bool successfullyDestroyed = false;
+    private void Start()
+    {
+        RunCheck();
+    }
+    private void Awake()
+    {
+        RunCheck();
+    }
+    private void Update()
+    {
+        RunCheck();
+    }
+
+    private void RunCheck()
+    {
+        if (successfullyDestroyed)
+        {
+            return;
+        }
+
+        foreach (string objectName in ObjectNamesForDestruction)
+        {
+            Transform foundChild = transform.FindDeepChild(objectName);
+
+            if(foundChild != null)
+            {
+                RLog.Msg(gameObject.name + "Found object for destruction: " + foundChild.name);
+                KeepObjectDeactivated objectDeactivated = foundChild.gameObject.GetOrAddComponent<KeepObjectDeactivated>();
+
+                if(objectDeactivated != null)
+                {
+                    successfullyDestroyed = true;
+                }
+            }
         }
     }
 }

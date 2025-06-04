@@ -14,6 +14,7 @@ public static class Config
     public static ConfigEntry<bool> SnowFix { get; private set; }
     public static ConfigEntry<bool> EasyBunkers { get; private set; }
     public static ConfigEntry<bool> ItemCollectUIFix { get; private set; }
+    public static KeybindConfigEntry PosKey { get; private set; }
 
     public static void Init()
     {
@@ -54,6 +55,12 @@ public static class Config
            true,
            "Disable collect Items UI inside Caves",
            "Will remove the items to collect ui when entering a cave");
+
+        PosKey = Category.CreateKeybindEntry(
+               "menu_key", // Set identifier
+               EInputKey.numpad5, // Set default input key
+               "Open/Close the Camera Flow Menu", // //Set name displayed in mod menu settings
+               "Open/Close the Camera Flow Menu"); //Set description shown on hovering mouse over displayed name
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.

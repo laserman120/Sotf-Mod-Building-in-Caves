@@ -1,4 +1,10 @@
-﻿using HarmonyLib;
+﻿using Endnight.Utilities;
+using HarmonyLib;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Pathfinding;
+using RedLoader;
+using Sons.Ai;
+using Sons.Ai.Vail;
 using Sons.Animation.PlayerControl;
 using Sons.Areas;
 using Sons.Crafting;
@@ -7,8 +13,10 @@ using Sons.Gameplay.GPS;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace AllowBuildInCaves.Harmony
 {
@@ -130,6 +138,105 @@ namespace AllowBuildInCaves.Harmony
             if (IsInCavesStateManager.IsInCaves && !IsInCavesStateManager.ItemCollectUIFix)
             {
                 AllowBuildInCaves.CraftingSystem.UpdateRequiredCountUIForAllItems();
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        //SCUFFED TESTING
+        
+        [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TryAddNavLinkToTerrain))]
+        private static class NavMeshCustomMeshAddPatch
+        {
+            private static bool Prefix(NavMeshCustomMeshAdd __instance, ref bool __result, Vector3 linkPoint, Vector3 checkPoint)
+            {
+                bool flag;
+                Vector3 closestNavMeshPoint = AiUtilities.GetClosestNavMeshPoint(checkPoint, 1, out flag);
+                Vector3 testLink = new Vector3();
+                bool isLinked = __instance.TestLinkToNavGraph(checkPoint, out testLink, false);
+                if (testLink == new Vector3())
+                {
+                    RLog.Msg("Failed to find valid testLink for NavMeshCustomMeshAddPatch");
+                    __result = false;
+                    return false;
+                }
+                if (!isLinked)
+                {
+                    RLog.Msg("Failed to link NavMeshCustomMeshAddPatch");
+                    __result = false;
+                    return false;
+                }
+                bool traceSucceeded = false;
+                bool isLockedDoor = false;
+                if (isLinked)
+                {
+                    traceSucceeded = __instance.CheckPhysicsTrace(linkPoint, closestNavMeshPoint, false, out isLockedDoor);
+                }
+
+                __instance._navLinkTests.Add(new NavMeshCustomMeshAdd.NavLinkLocations(linkPoint, checkPoint, testLink, isLinked, traceSucceeded, isLockedDoor, false));
+                if (!flag || Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f) > __instance._navLinkMaxDistance)
+                {
+                    __result = false;
+                    return false;
+                }
+                GameObject gameObject = new GameObject("start");
+                NavAddLink navAddLink = gameObject.AddComponent<NavAddLink>();
+                gameObject.transform.parent = __instance.transform;
+                gameObject.transform.position = linkPoint;
+                Transform transform = new GameObject("target").transform;
+                transform.parent = __instance.transform;
+                transform.position = closestNavMeshPoint;
+                navAddLink.end = transform;
+                __instance._navAddLinks.Add(navAddLink);
+                __result = true;
+                return false;
+            }
+        }
+
+        
+        //NavMeshCutSetup.TryCreateFromWorldPoints
+        [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TestLinkToNavGraph))]
+        private static class TestLinkToNavGraphPatch
+        {
+            private static void Prefix(Vector3 checkPoint, ref Vector3 closestNavPoint, ref bool testGroundHeight)
+            {
+                RLog.Msg("Ran Patch for TestLinkToNavGraphPatch");
+                if (testGroundHeight)
+                {
+                    testGroundHeight = false; // Disable ground height testing
+                    RLog.Msg("testGroundHeight set to false in TestLinkToNavGraphPatch");
+                }
+            }
+        }
+
+        
+        [HarmonyPatch(typeof(NavMeshCutSetup), nameof(NavMeshCutSetup.TryCreateFromWorldPoints))]
+        private static class TryCreateFromWorldPointsPatch
+        {
+            private static void Prefix(Transform cutTr,ref Il2CppStructArray<Vector3> points, NavmeshCut navCut, float extraHeight, float margin,ref bool checkTerrainDist,ref bool checkTerrainDistMinHeight,bool cutAddedGeo)
+            {
+                RLog.Msg("Ran Patch for TryCreateFromWorldPoints");
+                if (checkTerrainDist)
+                {
+                    checkTerrainDist = false; // Disable ground height testing
+                    RLog.Msg("checkTerrainDist set to false in TryCreateFromWorldPoints");
+                }
+
+                if (checkTerrainDistMinHeight)
+                {
+                    checkTerrainDistMinHeight = false;
+                    RLog.Msg("checkTerrainDistMinHeight set to false in TryCreateFromWorldPoints");
+                }
             }
         }
     }
