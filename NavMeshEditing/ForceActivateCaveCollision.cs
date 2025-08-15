@@ -1,5 +1,6 @@
 ﻿using Endnight.Types;
 using Endnight.Utilities;
+using Pathfinding;
 using RedLoader;
 using SonsSdk;
 using System;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem.HID;
+using UnityEngine.SceneManagement;
 
 namespace AllowBuildInCaves.NavMeshEditing
 {
@@ -32,7 +34,8 @@ namespace AllowBuildInCaves.NavMeshEditing
         public static void ForceActivateCaveCollisions()
         {
             RLog.Msg("Searching Cave Collision");
-            GameObject CaveCollisionHoler = new GameObject("CaveCollisionHolder");
+            GameObject CaveCollisionHolder = new GameObject("CaveCollisionHolder");
+
             GameObject[] allLoadedGameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
 
             foreach (string prefix in parentNamePrefixes)
@@ -42,7 +45,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                     if (potentialParent.name.StartsWith(prefix))
                     {
                         GameObject SpecificCaveHolder = new GameObject("Holder-" + potentialParent.name);
-                        SpecificCaveHolder.SetParent(CaveCollisionHoler.transform, true); // Keep world position
+                        SpecificCaveHolder.SetParent(CaveCollisionHolder.transform, true); // Keep world position
                         for (int i = potentialParent.transform.childCount - 1; i >= 0; i--)
                         {
                             Transform child = potentialParent.transform.GetChild(i);
@@ -60,10 +63,6 @@ namespace AllowBuildInCaves.NavMeshEditing
                                     };
 
                                 }
-                                
-
-
-
                                 child.SetParent(SpecificCaveHolder.transform, true); // Keep world position
                             }
                         }
@@ -83,6 +82,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                     }
                 }
             }
+
             RLog.Msg("Cave Collision search complete");
         }
     }

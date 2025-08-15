@@ -39,6 +39,7 @@ namespace AllowBuildInCaves.NavMeshEditing
     {
         public static List<Vector3> PathCreationPoints = new List<Vector3>();
 
+
         public static void ProcessAllCustomPaths(bool showDebug)
         {
             var pathStorageTypes = typeof(CustomPathGeneration).Assembly.GetTypes() 
@@ -110,10 +111,6 @@ namespace AllowBuildInCaves.NavMeshEditing
             vertices.Add(firstPos + firstPerpendicular * firstHalfWidth); // Vertex 1
 
             // Vertices Calculation for intermediate points
-            // For IPoint[j] (where j from 1 to IPoints.Count-2), we add 3 vertices:
-            // 1. Outer point
-            // 2. Backward point towards next IPoint (p3_adj)
-            // 3. Backward point towards previous IPoint (p1_adj)
             for (int i = 1; i < IPoints.Count - 1; i++)
             {
                 Vector3 prevPos_actual = IPoints[i - 1].Position;
@@ -172,33 +169,24 @@ namespace AllowBuildInCaves.NavMeshEditing
             float lastHalfWidth = IPoints[IPoints.Count - 1].Width / 2f;
             Vector3 secondToLastPos = IPoints[IPoints.Count - 2].Position;
 
-            // Original logic for lastPerpendicular used (Prev - Last).normalized
-            // To be consistent with firstPerpendicular (Next - First), let's use (Last - Prev).normalized
             Vector3 lastSegmentDirection = (lastPos - secondToLastPos).normalized;
             Vector3 lastPerpendicular = Vector3.Cross(lastSegmentDirection, Vector3.up).normalized;
             if (lastPerpendicular == Vector3.zero)
             {
                 lastPerpendicular = Vector3.Cross(lastSegmentDirection, Vector3.forward).normalized;
             }
-            // Original code added + then -, which corresponds to Right then Left if perpendicular points right.
+
             vertices.Add(lastPos + lastPerpendicular * lastHalfWidth); // Vertex (vertices.Count-2 after adding)
             vertices.Add(lastPos - lastPerpendicular * lastHalfWidth); // Vertex (vertices.Count-1 after adding)
 
-
-            // --- TRIANGLE CALCULATION (Adhering to user's original logic) ---
             if (IPoints.Count == 2)
             {
-                // Special simple case for only two points (one segment)
-                // V0, V1 are from IPoints[0]. V2, V3 are from IPoints[1].
-                // V0=StartL, V1=StartR, V2=EndR, V3=EndL (based on my vertex adding order)
                 triangles.Add(0); triangles.Add(2); triangles.Add(1); // StartL, EndR, StartR
                 triangles.Add(0); triangles.Add(3); triangles.Add(2); // StartL, EndL, EndR
             }
             else
             {
                 // Triangle loop for intermediate segments
-                // i is the index of the CURRENT IPoint being processed (from 1 to Count-2)
-                // It defines triangles connecting IPoint[i-1] to IPoint[i]
                 for (int i = 1; i < IPoints.Count - 1; i++)
                 {
                     if (i == 1) // Triangles for segment between IPoints[0] and IPoints[1]
@@ -220,26 +208,12 @@ namespace AllowBuildInCaves.NavMeshEditing
                     }
                     else // Triangles for segment between IPoints[i-1] and IPoints[i], where i > 1
                     {
-                        // baseIndex points to the "BackToNext" vertex of IPoints[i-1]
-                        // Vertices for IPoints[i-1] start at 2 + ( (i-1) - 1 )*3
-                        // Outer for IPoints[i-1] is index: 2 + (i-2)*3 + 0
-                        // BackToNext for IPoints[i-1] is index: 2 + (i-2)*3 + 1  <- This is baseIndex
-                        // BackToPrev for IPoints[i-1] is index: 2 + (i-2)*3 + 2
                         int baseIndex = 2 + (i - 2) * 3 + 1;
 
                         // Vertices for IPoints[i]
-                        // Outer for IPoints[i] is index: 2 + (i-1)*3 + 0
-                        // BackToNext for IPoints[i] is index: 2 + (i-1)*3 + 1
-                        // BackToPrev for IPoints[i] is index: 2 + (i-1)*3 + 2
                         int currOuterIdx = 2 + (i - 1) * 3 + 0;
                         int currBackToNextIdx = 2 + (i - 1) * 3 + 1;
-                        // int currBackToPrevIdx = 2 + (i-1)*3 + 2; // Not used in user's DoLinesIntersect call for this quad
 
-                        // User's original DoLinesIntersect parameters:
-                        // vertices[baseIndex - 1] => Prev.Outer
-                        // vertices[baseIndex + 2] => Curr.Outer (this is currOuterIdx)
-                        // vertices[baseIndex + 1] => Prev.BackToPrev
-                        // vertices[baseIndex + 3] => Curr.BackToNext (this is currBackToNextIdx)
                         if (!DoLinesIntersect(vertices[baseIndex - 1], vertices[currOuterIdx], vertices[baseIndex + 1], vertices[currBackToNextIdx]))
                         {
                             //If they do NOT intersect
@@ -264,35 +238,16 @@ namespace AllowBuildInCaves.NavMeshEditing
                             triangles.Add(baseIndex + 1);       // Prev.BackToPrev
                         }
 
-                        // Fan triangle for IPoints[i-1]'s joint (user's original order)
                         triangles.Add(baseIndex - 1); // Prev.Outer
                         triangles.Add(baseIndex + 1); // Prev.BackToPrev
                         triangles.Add(baseIndex);     // Prev.BackToNext
                     }
                 }
-
-                // Triangles for the last segment (connecting IPoints[Count-2] to IPoints[Count-1])
-                // This logic is equivalent to the "else" block of the loop above,
-                // where IPoint[Count-2] is "prev" and IPoint[Count-1]'s two vertices are "curr"
-
-                // lastBaseIndex points to "BackToNext" vertex of IPoints[Count-2] (the second to last IPoint)
-                // IPoint_idx = Count-2. prev_IPoint_idx for loop was i-1. current_IPoint_idx was i.
-                // Here, IPoints[Count-2] is the "previous" point for this segment.
-                // Its "BackToNext" vertex index:
                 int lastBaseIndex = 2 + ((IPoints.Count - 2) - 1) * 3 + 1;
 
-                // Final two vertices (from IPoints[Count-1])
                 int finalV1_idx = vertices.Count - 2; // e.g., EndR
                 int finalV2_idx = vertices.Count - 1; // e.g., EndL
 
-                // User's original DoLinesIntersect for last segment:
-                // vertices[lastBaseIndex - 1] => PrevLast.Outer
-                // vertices[lastBaseIndex + 2] => This was Final_V1 in user's mapping.
-                // vertices[lastBaseIndex + 1] => PrevLast.BackToPrev
-                // vertices[lastBaseIndex + 3] => This was Final_V2 in user's mapping.
-                // Note: My current lastBaseIndex points to PrevLast.BackToNext.
-                // PrevLast.Outer is lastBaseIndex-1. PrevLast.BackToPrev is lastBaseIndex+1.
-                // So the parameters match up with finalV1_idx and finalV2_idx.
                 if (!DoLinesIntersect(vertices[lastBaseIndex - 1], vertices[finalV1_idx], vertices[lastBaseIndex + 1], vertices[finalV2_idx]))
                 {
                     //If they do NOT intersect
@@ -339,7 +294,7 @@ namespace AllowBuildInCaves.NavMeshEditing
             for (float offset = 0.05f; offset <= 0.3f; offset += 0.05f)
             {
                 Vector3 connectionPointStart = firstIPointPos + Vector3.down * offset;
-                if (TryAddNavLinkToTerrain(firstIPointPos, connectionPointStart, 1, navMeshAdder))
+                if (TryAddNavLinkToTerrain(firstIPointPos, connectionPointStart, AllowBuildInCaves.graphMask, navMeshAdder))
                 {
                     RLog.Msg(objectName + " Found First connection Point with mask " + 1);
                     isConnectedFirst = true;
@@ -354,7 +309,7 @@ namespace AllowBuildInCaves.NavMeshEditing
             for (float offset = 0.05f; offset <= 0.3f; offset += 0.05f)
             {
                 Vector3 connectionPointEnd = lastIPointPos + Vector3.down * offset;
-                if (TryAddNavLinkToTerrain(lastIPointPos, connectionPointEnd, 1, navMeshAdder))
+                if (TryAddNavLinkToTerrain(lastIPointPos, connectionPointEnd, AllowBuildInCaves.graphMask, navMeshAdder))
                 {
                     RLog.Msg(objectName + " Found Last connection Point with mask " + 1);
                     isConnectedLast = true;
@@ -408,37 +363,6 @@ namespace AllowBuildInCaves.NavMeshEditing
             AreaMask.BunkerF,
             AreaMask.BunkerG
         };
-
-        /*public static int TryToFindNavMeshPoint(Vector3 input, bool blockNone)
-        {
-            bool flag;
-            float shortestFoundDistance = 9999f;
-            int closestNavMeshFound = 999;
-            foreach (AreaMask areaMask in AllAreaMasks)
-            {
-                if (blockNone && areaMask == AreaMask.None) { continue; }
-                int NavGraphMask = VailWorldSimulation._instance.GetNavGraphMaskForArea(areaMask);
-                Vector3 closestNavMeshPoint = AiUtilities.GetClosestNavMeshPoint(input, NavGraphMask, out flag);
-
-                if (flag)
-                {
-                    float distanceToTarget = Vector3.Distance(input, closestNavMeshPoint);
-                    RLog.Msg("Found NavMesh at " + input + " with mesh id: " + areaMask + " with distance " + distanceToTarget);
-
-                    if (distanceToTarget < shortestFoundDistance)
-                    {
-                        shortestFoundDistance = distanceToTarget;
-                        closestNavMeshFound = NavGraphMask;
-                    }
-                }
-            }
-            if (closestNavMeshFound == 999 || shortestFoundDistance == 9999f)
-            {
-                return closestNavMeshFound;
-            }
-            RLog.Msg("Closest NavMesh Found: " + closestNavMeshFound + " with distance: " + shortestFoundDistance);
-            return closestNavMeshFound;
-        }*/
 
         public static bool TryAddNavLinkToTerrain(Vector3 linkPoint, Vector3 checkPoint, int navGraphMask, NavMeshCustomMeshAdd navMeshAdder)
         {
@@ -564,10 +488,20 @@ namespace AllowBuildInCaves.NavMeshEditing
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("Current Path Points:");
-            foreach (var point in PathCreationPoints)
+            sb.AppendLine("public static List<NavMeshEditing.PathPoint> NAME_HERE = new List<NavMeshEditing.PathPoint>");
+            sb.AppendLine("{");
+            for (int i = 0; i < PathCreationPoints.Count; i++)
             {
-                sb.AppendLine($"new NavMeshEditing.PathPoint(new Vector3({point.x.ToString(CultureInfo.InvariantCulture)}f, {point.y.ToString(CultureInfo.InvariantCulture)}f, {point.z.ToString(CultureInfo.InvariantCulture)}f),");
+                if (i == PathCreationPoints.Count - 1)
+                {
+                    sb.AppendLine($"new NavMeshEditing.PathPoint(new Vector3({PathCreationPoints[i].x.ToString(CultureInfo.InvariantCulture)}f, {PathCreationPoints[i].y.ToString(CultureInfo.InvariantCulture)}f, {PathCreationPoints[i].z.ToString(CultureInfo.InvariantCulture)}f), 1f)"); // Last point without comma
+                }
+                else 
+                { 
+                    sb.AppendLine($"new NavMeshEditing.PathPoint(new Vector3({PathCreationPoints[i].x.ToString(CultureInfo.InvariantCulture)}f, {PathCreationPoints[i].y.ToString(CultureInfo.InvariantCulture)}f, {PathCreationPoints[i].z.ToString(CultureInfo.InvariantCulture)}f), 1f),");
+                }
             }
+            sb.AppendLine("};");
             RLog.Msg("" + sb.ToString() + "");
         }
     }

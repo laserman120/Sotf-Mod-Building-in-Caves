@@ -1,15 +1,31 @@
-﻿using RedLoader;
+﻿using Il2CppInterop.Runtime;
+using Il2CppSystem;
+using Pathfinding;
+using RedLoader;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static Pathfinding.Graphs.Navmesh.ColliderMeshBuilder2D;
 
 namespace AllowBuildInCaves.NavMeshEditing
 {
     internal class ReplaceExistingMeshes
     {
+
+        public static List<NavMeshGraph> allNavMeshGraphs = new();
+
+        public static string FetchAstarVersion()
+        {
+            Il2CppSystem.Version astarVersion = AstarPath.Version;
+            return astarVersion.ToString();
+        }
+
+
+
         // Helper to find 3 diverse points from a local vertex array and get their indices
         private static bool GetDiverseLocalPointsIndices(
             Vector3[] localVertices,
@@ -97,18 +113,13 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Pathfinding.RecastGraph recastGraph = graphObject.TryCast<Pathfinding.RecastGraph>();
                 if (recastGraph == null) continue;
                 RLog.Msg($"Processing RecastGraph: '{recastGraph.name}'");
-                recastGraph.cellSize = 0.15f;
-                recastGraph.characterRadius = 0.15f;
-                recastGraph.maxEdgeLength = 10f;
-                recastGraph.maxSlope = 48f;
-                recastGraph.minRegionSize = 10f;
-                recastGraph.colliderRasterizeDetail = 1f;
+                recastGraph.cellSize = 0.10f;
             }
             RLog.Msg("RecastGraph settings adjusted for cave meshes. Creating meshes...");
 
         }
 
-        public static void GenerateCaveMeshes()
+        public static void EnableCuttingOnCaveMeshes()
         {
             if (AstarPath.active == null || AstarPath.active.data == null)
             {
@@ -119,6 +130,246 @@ namespace AllowBuildInCaves.NavMeshEditing
             Il2CppSystem.Collections.IEnumerable graphs = AstarPath.active.data.FindGraphsOfType(Il2CppSystem.RuntimeType.GetType("Pathfinding.NavMeshGraph"));
 
             int navmeshesProcessed = 0;
+
+            foreach (Il2CppSystem.Object graphObject in graphs)
+            {
+                if (graphObject == null) continue;
+                Pathfinding.NavMeshGraph originalGraph = graphObject.TryCast<Pathfinding.NavMeshGraph>();
+                if (originalGraph == null) continue;
+
+                originalGraph.enableNavmeshCutting = true;
+                RLog.Msg($"Enabled Navmesh Cutting for graph: '{originalGraph.name}'");
+
+                allNavMeshGraphs.Add(originalGraph);
+
+                // Attempt to fix scaling
+                Mesh originalMesh = originalGraph.sourceMesh;
+                if (originalMesh == null) return;
+
+                // Store original values before we change them.
+                Vector3 originalOffset = originalGraph.offset;
+                float originalScale = originalGraph.scale;
+                Bounds originalBounds = originalMesh.bounds;
+
+                // --- STEP 1: Create the new, pre-scaled mesh ---
+                Mesh scaledMesh = CreateCorrectlyScaledMesh(originalMesh, originalScale);
+
+                //bool exportfinished = ExportMesh(scaledMesh, $"D:/SteamLibrary/steamapps/common/Sons Of The Forest/Mods/AllowBuildInCaves/{originalGraph.name}_ScaledMesh.obj");
+                //RLog.Msg("Export completed" + (exportfinished ? " successfully." : " with errors."));
+
+                string FileName = originalGraph.name;
+                string filePath = $"Mods/AllowBuildInCaves/";
+                if (File.Exists(filePath + FileName + "_Fixed.obj"))
+                {
+                    Mesh fixedMesh = ImportMesh(filePath + FileName + "_Fixed.obj");
+                    if(fixedMesh != null)
+                    {
+                        originalGraph.sourceMesh = fixedMesh;
+                        RLog.Msg($"Using fixed mesh for {originalGraph.name} from {filePath + FileName + "_Fixed.obj"}");
+                    }
+                } else
+                {
+                    originalGraph.sourceMesh = scaledMesh;
+                    RLog.Msg($"Using scaled mesh for {originalGraph.name}");
+                }
+
+                //Mesh attemptedFixedMesh = MeshRepairUtility.RepairUnityMesh(scaledMesh, 0.5f, 10); //, scaledMesh.vertexCount
+                //originalGraph.sourceMesh = attemptedFixedMesh;
+
+                //bool exportfinished = ExportMesh(attemptedFixedMesh, $"D:/SteamLibrary/steamapps/common/Sons Of The Forest/Mods/AllowBuildInCaves/{originalGraph.name}_AutomaticFixTest.obj");
+                //RLog.Msg("Export completed" + (exportfinished ? " successfully." : " with errors."));
+
+
+
+                originalGraph.scale = 1f; // The whole point: set scale to 1.
+
+                Vector3 V3Scale = new Vector3(originalScale, originalScale, originalScale);
+                Vector3 compensationOffset = Vector3.Scale(originalBounds.min, V3Scale);
+                originalGraph.offset = originalOffset + compensationOffset;
+
+                AstarPath.active.Scan(originalGraph);
+                navmeshesProcessed++;
+            }
+
+            if(navmeshesProcessed > 0)
+            {
+                RLog.Msg($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
+                AstarPath.active.FlushGraphUpdates(); 
+                RLog.Msg("Rescanning the AstarPath..."); 
+                AstarPath.active.Scan(); 
+            }
+            else
+            {
+                RLog.Msg("No NavMeshGraphs were processed for cutting.");
+            }
+        }
+
+        public static bool ExportMesh(Mesh meshToExport, string filePath)
+        {
+            if (meshToExport == null || !meshToExport.isReadable)
+            {
+                // Your logging here
+                return false;
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendLine($"# Exported from game on {System.DateTime.Now}");
+            sb.AppendLine($"# Object: {meshToExport.name}");
+            sb.AppendLine();
+
+            // Write all vertices using InvariantCulture to guarantee '.' as decimal separator
+            foreach (Vector3 v in meshToExport.vertices)
+            {
+                // --- THIS LINE IS THE FIX ---
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "v {0} {1} {2}", -v.x, v.y, v.z));
+            }
+            sb.AppendLine();
+
+            // Write all triangle indices
+            sb.AppendLine("# Faces");
+            int[] triangles = meshToExport.triangles;
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                sb.AppendLine($"f {triangles[i] + 1} {triangles[i + 1] + 1} {triangles[i + 2] + 1}");
+            }
+
+            try
+            {
+                File.WriteAllText(filePath, sb.ToString());
+            }
+            catch (System.Exception e)
+            {
+                // Log($"ERROR writing file: {e.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        public static Mesh ImportMesh(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            var vertices = new Il2CppSystem.Collections.Generic.List<Vector3>();
+            var triangles = new Il2CppSystem.Collections.Generic.List<int>();
+
+            string[] lines = File.ReadAllLines(filePath);
+
+            foreach (string line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                {
+                    continue;
+                }
+
+                string[] parts = line.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length > 0)
+                {
+                    if (parts[0] == "v") // Vertex line
+                    {
+                        // --- THESE LINES ARE THE FIX ---
+                        float x = float.Parse(parts[1], CultureInfo.InvariantCulture);
+                        float y = float.Parse(parts[2], CultureInfo.InvariantCulture);
+                        float z = float.Parse(parts[3], CultureInfo.InvariantCulture);
+                        vertices.Add(new Vector3(-x, y, z));
+                    }
+                    else if (parts[0] == "f") // Face line
+                    {
+                        triangles.Add(int.Parse(parts[1].Split('/')[0]) - 1);
+                        triangles.Add(int.Parse(parts[2].Split('/')[0]) - 1);
+                        triangles.Add(int.Parse(parts[3].Split('/')[0]) - 1);
+                    }
+                }
+            }
+
+            if (vertices.Count == 0) return null;
+
+            Mesh newMesh = new Mesh();
+            newMesh.name = System.IO.Path.GetFileNameWithoutExtension(filePath);
+            newMesh.SetVertices(vertices);
+            newMesh.SetTriangles(triangles, 0);
+
+            newMesh.RecalculateNormals();
+            newMesh.RecalculateBounds();
+            newMesh.Optimize();
+
+            return newMesh;
+        }
+
+        public static Mesh CreateCorrectlyScaledMesh(Mesh sourceMesh, float scaleFactor)
+        {
+            if (sourceMesh == null) return null;
+
+            // CRITICAL CHECK: This will fail if the mesh is not marked Read/Write enabled.
+            if (!sourceMesh.isReadable)
+            {
+                // Your logging implementation here.
+                // Log($"ERROR: Mesh '{sourceMesh.name}' is not readable. Cannot scale.");
+                return null;
+            }
+
+            Vector3[] originalVertices = sourceMesh.vertices;
+            Vector3[] scaledVertices = new Vector3[originalVertices.Length];
+
+            // This is the "secret sauce" matrix from the decompiled code.
+            Matrix4x4 transformationMatrix = Matrix4x4.TRS(
+                -sourceMesh.bounds.min * scaleFactor,
+                Quaternion.identity,
+                Vector3.one * scaleFactor
+            );
+
+            for (int i = 0; i < originalVertices.Length; i++)
+            {
+                scaledVertices[i] = transformationMatrix.MultiplyPoint3x4(originalVertices[i]);
+            }
+
+            // Create a new mesh and apply the transformed vertices and original triangles.
+            Mesh newMesh = new Mesh();
+            newMesh.name = sourceMesh.name + "_Scaled";
+            newMesh.vertices = scaledVertices;
+            newMesh.triangles = sourceMesh.triangles; // Triangles remain the same.
+
+            // Important: Recalculate normals and bounds for the new mesh.
+            newMesh.RecalculateNormals();
+            newMesh.RecalculateBounds();
+
+            return newMesh;
+        }
+
+        public static void GenerateCaveMeshes()
+        {
+            if (AstarPath.active == null || AstarPath.active.data == null)
+            {
+                RLog.Error("AstarPath is not active or data is null.");
+                return;
+            }
+
+            RecastGraph mainRecastGraph = null;
+            //Fetch and store the main recast graph.
+            Il2CppSystem.Collections.IEnumerable recastGraphs = AstarPath.active.data.FindGraphsOfType(Il2CppSystem.RuntimeType.GetType("Pathfinding.RecastGraph"));
+
+            foreach (Il2CppSystem.Object graphObject in recastGraphs)
+            {
+                if (graphObject == null) continue;
+                Pathfinding.RecastGraph recastGraph = graphObject.TryCast<Pathfinding.RecastGraph>();
+                if (recastGraph == null) continue;
+                mainRecastGraph = recastGraph;
+                break;
+            }
+
+            //Create a holder for our newly created meshes.
+            List<GameObject> navMeshHolder = new List<GameObject>();
+
+            Il2CppSystem.Collections.IEnumerable graphs = AstarPath.active.data.FindGraphsOfType(Il2CppSystem.RuntimeType.GetType("Pathfinding.NavMeshGraph"));
+
+            int navmeshesProcessed = 0;
+
+
 
             foreach (Il2CppSystem.Object graphObject in graphs)
             {
@@ -239,35 +490,24 @@ namespace AllowBuildInCaves.NavMeshEditing
                 meshForGO.RecalculateBounds();
                 RLog.Msg($"  Mesh for GO '{meshForGO.name}' created. Its local bounds center: {meshForGO.bounds.center.ToString("F5")}");
 
-                //NEW TEST CODE ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-                // --- 5. Setup GameObject with the SOLVED Transform to be SCANNED by RecastGraph ---
-                GameObject meshHolderGO = new GameObject($"ScannableCaveMesh_{originalGraph.name}"); // Renamed for clarity
+                GameObject meshHolderGO = new GameObject($"ScannableCaveMesh_{originalGraph.name}");
                 meshHolderGO.transform.position = Vector3.zero;
                 meshHolderGO.transform.rotation = R_solved;
-                meshHolderGO.transform.localScale = Vector3.one; // Ensure localScale is one if graphDeclaredScale already handled scaling of vertices
+                meshHolderGO.transform.localScale = Vector3.one;
 
-                // Add MeshFilter and assign the created mesh
                 MeshFilter meshFilter = meshHolderGO.AddComponent<MeshFilter>();
                 meshFilter.mesh = meshForGO;
 
-                // Add MeshCollider and assign the created mesh
-                // This is what the RecastGraph will typically scan if "Rasterize Colliders" is enabled.
-                // If "Rasterize Meshes" is enabled on the RecastGraph, it might pick up the MeshFilter directly,
-                // but having a MeshCollider is generally safer and more standard for RecastGraph input.
                 MeshCollider meshCollider = meshHolderGO.AddComponent<MeshCollider>();
                 meshCollider.sharedMesh = meshForGO;
 
-                // Set the layer of the GameObject so the RecastGraph scans it.
                 // Based on RecastGraph.mask = 71303168, Layer 22 or 26 are valid. Let's use 22.
-                // IMPORTANT: Make sure Layer 22 (or 26) exists and is appropriately named/used in your project context.
-                const int SCAN_LAYER = 26; // Or 22
+                const int SCAN_LAYER = 26;
                 meshHolderGO.layer = SCAN_LAYER;
 
                 RLog.Msg($"  Set up Scannable GameObject '{meshHolderGO.name}' on layer {SCAN_LAYER}.");
                 RLog.Msg($"    GO P: {meshHolderGO.transform.position.ToString("F3")}, GO R(Euler): {meshHolderGO.transform.rotation.eulerAngles.ToString("F3")}");
 
-                // Verification of chosen alignment points (this part remains useful)
                 Vector3 actual_W_A = meshHolderGO.transform.TransformPoint(SL_A);
                 RLog.Msg($"    Verify W_A (idx {idxA}): Target={W_A_target.ToString("F3")}, Actual={actual_W_A.ToString("F3")}, DiffMag={(W_A_target - actual_W_A).magnitude:F5}");
                 Vector3 actual_W_B = meshHolderGO.transform.TransformPoint(SL_B);
@@ -275,43 +515,11 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Vector3 actual_W_C = meshHolderGO.transform.TransformPoint(SL_C);
                 RLog.Msg($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
 
-                navmeshesProcessed++;
-                /*
-                // --- 5. Setup GameObject with the SOLVED Transform ---
-                GameObject meshHolderGO = new GameObject($"ClonedNavMesh_{originalGraph.name}");
-                meshHolderGO.transform.position = T_solved;
-                meshHolderGO.transform.rotation = R_solved;
-                meshHolderGO.transform.localScale = Vector3.one;
-
-                Pathfinding.NavmeshAdd navmeshAdd = meshHolderGO.AddComponent<Pathfinding.NavmeshAdd>();
-                navmeshAdd.mesh = meshForGO;
-                navmeshAdd.type = Pathfinding.NavmeshAdd.MeshType.CustomMesh;
-                navmeshAdd.useRotationAndScale = true;
-                navmeshAdd.graphMask = 1;
-
-                Vector3 p_go_final = meshHolderGO.transform.position;
-                Quaternion r_go_final = meshHolderGO.transform.rotation;
-                navmeshAdd.center = Quaternion.Inverse(r_go_final) * (-p_go_final);
-                RLog.Msg($"  Set navmeshAdd.center (field) to: {navmeshAdd.center.ToString("F5")}");
-
-                navmeshAdd.enabled = false;
-                navmeshAdd.RebuildMesh();
-                navmeshAdd.enabled = true;
-
-                RLog.Msg($"  Set up NavmeshAdd on '{meshHolderGO.name}'.");
-                RLog.Msg($"    GO P: {meshHolderGO.transform.position.ToString("F3")}, GO R(Euler): {meshHolderGO.transform.rotation.eulerAngles.ToString("F3")}");
-                RLog.Msg($"    navmeshAdd.Center (bounds.center): {navmeshAdd.center.ToString("F3")} (Target: {T_solved.ToString("F3")})");
-
-                // Verification of chosen alignment points
-                Vector3 actual_W_A = meshHolderGO.transform.TransformPoint(SL_A);
-                RLog.Msg($"    Verify W_A (idx {idxA}): Target={W_A_target.ToString("F3")}, Actual={actual_W_A.ToString("F3")}, DiffMag={(W_A_target - actual_W_A).magnitude:F5}");
-                Vector3 actual_W_B = meshHolderGO.transform.TransformPoint(SL_B);
-                RLog.Msg($"    Verify W_B (idx {idxB}): Target={W_B_target.ToString("F3")}, Actual={actual_W_B.ToString("F3")}, DiffMag={(W_B_target - actual_W_B).magnitude:F5}");
-                Vector3 actual_W_C = meshHolderGO.transform.TransformPoint(SL_C);
-                RLog.Msg($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
+                //add the new holder to our meshHolder list
+                navMeshHolder.Add(meshHolderGO);
 
                 navmeshesProcessed++;
-                */
+
             }
 
             if (navmeshesProcessed > 0) { 
@@ -320,7 +528,10 @@ namespace AllowBuildInCaves.NavMeshEditing
                 RLog.Msg("Rescanning the AstarPath...");
                 AstarPath.active.Scan();
             }
-            else { RLog.Msg("No NavMeshGraphs were processed."); }
+            else 
+            { 
+                RLog.Msg("No NavMeshGraphs were processed."); 
+            }
         }
     }
 }

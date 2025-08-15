@@ -1,4 +1,5 @@
-﻿using Endnight.Utilities;
+﻿using Endnight.Environment;
+using Endnight.Utilities;
 using Pathfinding;
 using RedLoader;
 using Sons.Ai.Vail;
@@ -29,7 +30,7 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
             vailActor = GetComponent<VailActor>();
         }
 
-        SpecialyActorAdjustments();
+        SpecialActorAdjustments();
     }
 
     private void Start()
@@ -39,10 +40,10 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
             vailActor = GetComponent<VailActor>();
         }
 
-        SpecialyActorAdjustments();
+        SpecialActorAdjustments();
     }
 
-    private void SpecialyActorAdjustments()
+    private void SpecialActorAdjustments()
     {
         if(vailActor.TypeId == VailActorTypeId.Robby)
         {
@@ -54,15 +55,26 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
 
     private void Update()
     {
+        // Custom reimplementation to keepAboveTerrain for Robby and Virginia as a failsafe
+        if(vailActor.TypeId == VailActorTypeId.Robby || vailActor.TypeId == VailActorTypeId.Virginia)
+        {
+            if(vailActor.transform.position.y < -250f)
+            {
+                float terrainHeight = TerrainUtilities.GetTerrainHeight(vailActor.transform.position);
+                vailActor.transform.position = new Vector3(vailActor.transform.position.x, terrainHeight + 1f, vailActor.transform.position.z);
+            }
+        }
+
+
         if (vailActor == null)
         {
             vailActor = GetComponent<VailActor>();
         }
 
         //enforce graphMask 1 always
-        if (vailActor.GetNavGraphMask() != GraphMask.FromGraphIndex(0))
+        if (vailActor.GetNavGraphMask() != GraphMask.everything)
         {
-            vailActor.SetNavGraphMask(GraphMask.FromGraphIndex(0));
+            vailActor.SetNavGraphMask(GraphMask.everything);
         }
 
         //Run Relevancy check
@@ -150,5 +162,13 @@ public class SpecialActorCaveFixes : MonoBehaviour
         vailActor._defaultMoveSettings._keepAboveTerrain = false;
         DynamicBoneCollider boneCollider = GetComponent<DynamicBoneCollider>();
         boneCollider.m_Height = 1f;
+    }
+
+    private void Update()
+    {
+        if (vailActor.GetNavGraphMask() != GraphMask.everything)
+        {
+            vailActor.SetNavGraphMask(GraphMask.everything);
+        }
     }
 }
