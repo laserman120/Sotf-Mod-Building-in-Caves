@@ -144,7 +144,6 @@ namespace AllowBuildInCaves.Harmony
         }
 
 
-        //SCUFFED TESTING
         
         [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TryAddNavLinkToTerrain))]
         private static class NavMeshCustomMeshAddPatch
@@ -227,11 +226,9 @@ namespace AllowBuildInCaves.Harmony
         {
             private static void Prefix(Vector3 checkPoint, ref Vector3 closestNavPoint, ref bool testGroundHeight)
             {
-                RLog.Msg("Ran Patch for TestLinkToNavGraphPatch");
                 if (testGroundHeight)
                 {
                     testGroundHeight = false; // Disable ground height testing
-                    RLog.Msg("testGroundHeight set to false in TestLinkToNavGraphPatch");
                 }
             }
         }
@@ -259,78 +256,16 @@ namespace AllowBuildInCaves.Harmony
                     return;
                 }
 
-                RLog.Msg("Ran Patch for TryCreateFromWorldPoints");
                 if (checkTerrainDist)
                 {
                     checkTerrainDist = false; // Disable ground height testing
-                    RLog.Msg("checkTerrainDist set to false in TryCreateFromWorldPoints");
                 }
 
                 if (checkTerrainDistMinHeight)
                 {
                     checkTerrainDistMinHeight = false;
-                    RLog.Msg("checkTerrainDistMinHeight set to false in TryCreateFromWorldPoints");
                 }
             }
-
-            /*private static void Postfix(Transform cutTr, ref Il2CppStructArray<Vector3> points, NavmeshCut navCut, float extraHeight, float margin, ref bool checkTerrainDist, ref bool checkTerrainDistMinHeight, bool cutAddedGeo)
-            {
-                if(navCut != null)
-                {
-                    float x = navCut.contourTransformationMatrix.m03;
-                    float y = navCut.contourTransformationMatrix.m13;
-                    float z = navCut.contourTransformationMatrix.m23;
-
-                    Vector3 position = new Vector3(x, y, z);
-
-
-
-                    NNInfo nodeInfo = AstarPath.active.GetNearest(position);
-
-                    if(nodeInfo == null)
-                    {
-                        RLog.Msg("Failed to fetch nodeInfo");
-                        return;
-                    }
-
-                    if(nodeInfo.node == null)
-                    {
-                        RLog.Msg("Failed to fetch nodeInfo.node");
-                        return;
-                    }
-
-                    if(nodeInfo.node.GraphIndex == 0)
-                    {
-                        RLog.Msg("Node Graph Index is 0, this is not a valid NavMesh node");
-                        return;
-                    }
-
-                    uint foundGraphIndex = nodeInfo.node.GraphIndex;
-
-                    RLog.Msg($"Found Graph Index: {foundGraphIndex}");
-                    if (foundGraphIndex > 0)
-                    {
-                        int finalGraphIndex = (int)(foundGraphIndex - 1);
-                        RLog.Msg($"Final Graph Index: {finalGraphIndex}");
-
-                        float usedGraphScale = ReplaceExistingMeshes.allNavMeshGraphs[finalGraphIndex].scale;
-
-                        Vector2 currentSize = navCut.rectangleSize;
-                        RLog.Msg("Found currentSize: " + currentSize.ToString());
-
-                        Vector2 newSize = new Vector2(currentSize.x / usedGraphScale, currentSize.y / usedGraphScale);
-
-                        RLog.Msg("Calculated newSize: " + newSize.ToString());
-
-                        navCut.rectangleSize = newSize;
-                    }
-
-                    
-
-
-
-                }
-            }*/
         }
     }
 }

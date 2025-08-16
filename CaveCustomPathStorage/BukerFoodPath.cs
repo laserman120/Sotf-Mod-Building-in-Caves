@@ -14,6 +14,5 @@ namespace AllowBuildInCaves.CaveCustomPathStorage
             new NavMeshEditing.PathPoint(new Vector3(-674.2449f, 49.92297f, 1152.7614f), 3f),
             new NavMeshEditing.PathPoint(new Vector3(-674.5446f, 49.97544f, 1150.09f), 3f)
         };
-
     }
 }

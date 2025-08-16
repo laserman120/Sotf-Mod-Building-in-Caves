@@ -8,6 +8,7 @@ public static class Config
 {
     public static ConfigCategory Category { get; private set; }
     public static ConfigEntry<bool> DontOpenCaves { get; private set; }
+    public static ConfigEntry<bool> AllowActorsInCaves { get; private set; }
     public static ConfigEntry<bool> GPSLoseSignal { get; private set; }
     public static ConfigEntry<bool> BlueFix { get; private set; }
     public static ConfigEntry<bool> KeepItemsInCutscene { get; private set; }
@@ -25,6 +26,12 @@ public static class Config
            false,
            "Dont open Caves",
            "Will not open up cave entrances, but still allows building. Applies after restart");
+
+        AllowActorsInCaves = Category.CreateEntry(
+            "allow_actors_in_caves",
+           false,
+           "Allow actors to traverse caves",
+           "Allows all actors (including Kelvin) to walk in and out of caves. Requires opening of cave entrances. Applies after restart");
 
         GPSLoseSignal = Category.CreateEntry(
            "gps_lose_signal",
@@ -59,8 +66,8 @@ public static class Config
         PosKey = Category.CreateKeybindEntry(
                "menu_key", // Set identifier
                EInputKey.numpad5, // Set default input key
-               "Open/Close the Camera Flow Menu", // //Set name displayed in mod menu settings
-               "Open/Close the Camera Flow Menu"); //Set description shown on hovering mouse over displayed name
+               "[DEBUG OPTION] Create internal path point", // //Set name displayed in mod menu settings
+               "Purely for debugging and development purposes, this option can be ignored"); //Set description shown on hovering mouse over displayed name
     }
 
     // Same as the callback in "CreateSettings". Called when the settings ui is closed.

@@ -158,10 +158,6 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
 
         ActorTools.GetPrefab(VailActorTypeId.Robby)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
         ActorTools.GetPrefab(VailActorTypeId.Virginia)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
-        //Add component to enforce nav masks END
-
-
-
 
         //Prepare astar for cave meshes
 
@@ -169,16 +165,13 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
         RLog.Msg($"Astar Version: {AstarVersion}");
 
         ReplaceExistingMeshes.EnableCuttingOnCaveMeshes();
+
+        GameObject navMeshStabilityCheckerObject = new GameObject("NavMeshStabilityChecker");
+        NavMeshStabilityChecker navMeshStabilityChecker = navMeshStabilityCheckerObject.AddComponent<NavMeshStabilityChecker>();
     }
 
     protected override void OnGameStart()
     {
-        
-
-        //Permanently Enable Cave Collision
-        ForceActivateCaveCollision.ForceActivateCaveCollisions();
-
-
         //register debug commands
         GameCommands.RegisterFromType(typeof(CustomPathGeneration));
         GameCommands.RegisterFromType(typeof(HoleGenerationHelper));
@@ -219,17 +212,23 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
         AdjustCellars();
         AddTriggerComponentToBunkers();
 
-        bool EnableDebugDrawing = false;
-
-        CustomPathGeneration.ProcessAllCustomPaths(EnableDebugDrawing);
-
-        List<CustomHoleGeneration.TerrainHole> terrainHoles = new List<CustomHoleGeneration.TerrainHole>
+        if (!Config.DontOpenCaves.Value && Config.AllowActorsInCaves.Value)
         {
-            new CustomHoleGeneration.TerrainHole(4, 5, new Vector3(-423.24f, 0f, 1510.705f), 0), //Cave A
-            new CustomHoleGeneration.TerrainHole(1, 1, new Vector3(-478.056f, 0f, 710.574f), 0), //Bunker A
-        };
+            //Permanently Enable Cave Collision
+            ForceActivateCaveCollision.ForceActivateCaveCollisions();
 
-        CustomHoleGeneration.CreateTerrainHole(terrainHoles);
+            bool EnableDebugDrawing = false;
+
+            CustomPathGeneration.ProcessAllCustomPaths(EnableDebugDrawing);
+
+            List<CustomHoleGeneration.TerrainHole> terrainHoles = new List<CustomHoleGeneration.TerrainHole>
+            {
+                new CustomHoleGeneration.TerrainHole(4, 5, new Vector3(-423.24f, 0f, 1510.705f), 0), //Cave A
+                new CustomHoleGeneration.TerrainHole(1, 1, new Vector3(-478.056f, 0f, 710.574f), 0), //Bunker A
+            };
+
+            CustomHoleGeneration.CreateTerrainHole(terrainHoles);
+        }
     }
 
     //helper to fetch all actors
