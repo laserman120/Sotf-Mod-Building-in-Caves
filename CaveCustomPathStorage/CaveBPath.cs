@@ -19,11 +19,11 @@ namespace AllowBuildInCaves.CaveCustomPathStorage
             new NavMeshEditing.PathPoint(new Vector3(-1103.263f, 126.8902f, -195.6777f), 6.0f),
             new NavMeshEditing.PathPoint(new Vector3(-1113.952f, 126.6484f, -199.6777f), 3.0f),
             new NavMeshEditing.PathPoint(new Vector3(-1121.671f, 124.8893f, -200.1978f), 3.5f),
-            new NavMeshEditing.PathPoint(new Vector3(-1135.445f, 121.3035f, -198.7219f), 3.0f),
-            new NavMeshEditing.PathPoint(new Vector3(-1141.307f, 118.1903f, -197.5179f), 2.5f),
-            new NavMeshEditing.PathPoint(new Vector3(-1147.759f, 114.5879f, -197.1476f), 2.0f),
+            new NavMeshEditing.PathPoint(new Vector3(-1135.445f, 121.3035f, -198.7219f), 2.5f),
+            new NavMeshEditing.PathPoint(new Vector3(-1141.307f, 118.1903f, -197.5179f), 1.5f),
+            new NavMeshEditing.PathPoint(new Vector3(-1147.759f, 114.5879f, -197.1476f), 1.2f),
             new NavMeshEditing.PathPoint(new Vector3(-1150.017f, 112.3904f, -201.5762f), 5.0f),
-            new NavMeshEditing.PathPoint(new Vector3(-1155.494f, 110.2265f, -206.1242f), 8.5f)
+            new NavMeshEditing.PathPoint(new Vector3(-1153.071f, 110.2423f, -204.5962f), 5.5f)
         };
 
         public static List<NavMeshEditing.PathPoint> caveBExitPath = new List<NavMeshEditing.PathPoint>

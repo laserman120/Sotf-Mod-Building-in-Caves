@@ -1,4 +1,5 @@
 ﻿using AllowBuildInCaves.NavMeshEditing;
+using Endnight.Environment;
 using Endnight.Utilities;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -6,10 +7,12 @@ using Pathfinding;
 using RedLoader;
 using Sons.Ai;
 using Sons.Ai.Vail;
+using Sons.Animation.Mae;
 using Sons.Animation.PlayerControl;
 using Sons.Areas;
 using Sons.Crafting;
 using Sons.Cutscenes;
+using Sons.Gameplay;
 using Sons.Gameplay.GPS;
 using System;
 using System.Collections.Generic;
@@ -144,7 +147,7 @@ namespace AllowBuildInCaves.Harmony
         }
 
 
-        
+
         [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TryAddNavLinkToTerrain))]
         private static class NavMeshCustomMeshAddPatch
         {
@@ -219,7 +222,7 @@ namespace AllowBuildInCaves.Harmony
             }
         }
 
-        
+
         //NavMeshCutSetup.TryCreateFromWorldPoints
         [HarmonyPatch(typeof(NavMeshCustomMeshAdd), nameof(NavMeshCustomMeshAdd.TestLinkToNavGraph))]
         private static class TestLinkToNavGraphPatch
@@ -233,11 +236,11 @@ namespace AllowBuildInCaves.Harmony
             }
         }
 
-        
+
         [HarmonyPatch(typeof(NavMeshCutSetup), nameof(NavMeshCutSetup.TryCreateFromWorldPoints))]
         private static class TryCreateFromWorldPointsPatch
         {
-            private static void Prefix(Transform cutTr,ref Il2CppStructArray<Vector3> points, NavmeshCut navCut, float extraHeight, float margin,ref bool checkTerrainDist,ref bool checkTerrainDistMinHeight,bool cutAddedGeo)
+            private static void Prefix(Transform cutTr, ref Il2CppStructArray<Vector3> points, NavmeshCut navCut, float extraHeight, float margin, ref bool checkTerrainDist, ref bool checkTerrainDistMinHeight, bool cutAddedGeo)
             {
                 NNInfo nodeInfo = AstarPath.active.GetNearest(cutTr.position);
 
@@ -266,6 +269,159 @@ namespace AllowBuildInCaves.Harmony
                     checkTerrainDistMinHeight = false;
                 }
             }
+        }
+
+
+
+        // Robby fixes lol
+
+        [HarmonyPatch(typeof(VailActor), nameof(VailActor.SetupMoveToTarget))]
+        private static class SetupMoveToTargetPatch
+        {
+            private static void Prefix(VailActor __instance, ref MoveToParams moveToParams, Transform targetTransform, bool targetIsStimuli)
+            {
+                if(__instance.TypeId == VailActorTypeId.Robby)
+                {
+                    Vector3 actorPos = __instance.transform.position;
+
+                    if (actorPos.y < TerrainUtilities.GetTerrainHeight(actorPos) - 5f && moveToParams.StopIgnoreY == true) 
+                    { 
+                        moveToParams.StopIgnoreY = false; // Disable Y-axis ignoring for Robby
+                    }
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(Robby), nameof(Robby.FindChopTreeStimuli))]
+        private static class RobbyFindChopTreeStimuli
+        {
+            private static bool Prefix(Robby __instance, ref Vector3 checkPos)
+            {
+                checkPos = TryFindBetterSearchPos(__instance, checkPos);
+
+                return true; // Let the original method run.
+            }
+        }
+
+        [HarmonyPatch(typeof(Robby), nameof(Robby.FindClearStumpStimuli))]
+        private static class RobbyFindClearStumpStimuli
+        {
+            private static bool Prefix(Robby __instance, ref Vector3 checkPos)
+            {
+                checkPos = TryFindBetterSearchPos(__instance, checkPos);
+
+                return true; // Let the original method run.
+            }
+        }
+
+        [HarmonyPatch(typeof(Robby), nameof(Robby.FindBushClearStimuli))]
+        private static class RobbyFindBushClearStimuli
+        {
+            private static bool Prefix(Robby __instance, ref Vector3 checkPos)
+            {
+                checkPos = TryFindBetterSearchPos(__instance, checkPos);
+
+                return true; // Let the original method run.
+            }
+        }
+
+        private static Vector3 TryFindBetterSearchPos(Robby __instance, Vector3 checkPos)
+        {
+            try
+            {
+                Vector3 actorPos = __instance._actor.Position();
+
+                // First, get the actor's current node and graph index.
+                // setup a constraint to only find navmeshgraphs, not recast graphs.
+                NNConstraint nNConstraint = NNConstraint.None;
+                //set the graph mask to ALL except the recast graph (graph 0)
+
+                nNConstraint.graphMask = ~(1 << 0);
+                nNConstraint.walkable = true; // Ensure we only consider walkable nodes.
+
+                NNInfo nodeInfo = AstarPath.active.GetNearest(actorPos, nNConstraint);
+
+                if (actorPos.y < TerrainUtilities.GetTerrainHeight(actorPos) - 5f)
+                {
+                    // Check if the node exists and is NOT on the surface graph (graph 0).
+                    if (nodeInfo.node != null && nodeInfo.node.GraphIndex != 0)
+                    {
+                        int currentGraphIndex = (int)nodeInfo.node.GraphIndex;
+
+                        // Use our new function to find the closest pre-defined exit.
+                        if (TryFindBestCaveExit(actorPos, currentGraphIndex, out Vector3 bestExitPoint))
+                        {
+                            // Success! Reroute the search to the best exit.
+                            checkPos = bestExitPoint;
+                        }
+                        else
+                        {
+                            RLog.Warning($"No mapped exits found or no valid path for cave with graph index {currentGraphIndex}.");
+                        }
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                RLog.Error($"RobbyCaveExitWaypointPatch failed: {e.Message}");
+            }
+
+            return checkPos;
+        }
+
+
+        private static readonly Dictionary<int, List<Vector3>> _caveExitPoints = new Dictionary<int, List<Vector3>>
+        {
+        // Graph 2 // Cave B
+        { 2, new List<Vector3> 
+            {
+                new Vector3(-1118f, 131f, -161f),
+                new Vector3(-1252f, 148f, -307f)
+            }  
+        },
+        
+        // Graph 3 // Cave C
+        { 3, new List<Vector3> 
+            { 
+                new Vector3(-1118f, 131f, -161f), 
+                new Vector3(-1252f, 148f, -307f) 
+            } 
+        },
+        
+        //  Graph 4 // Cave D
+        { 4, new List<Vector3> { } },
+
+    };
+
+        public static bool TryFindBestCaveExit(Vector3 startPos, int graphIndex, out Vector3 bestExit)
+        {
+            bestExit = Vector3.zero;
+
+            // 1. Check if we have defined any exits for this cave's graph index.
+            if (!_caveExitPoints.TryGetValue(graphIndex, out List<Vector3> potentialExits))
+            {
+                // We haven't mapped this cave, so we can't find an exit.
+                return false;
+            }
+
+            float shortestDistance = float.MaxValue;
+            bool foundExit = false;
+
+            foreach (Vector3 exitPoint in potentialExits)
+            {
+                // Calculate the simple, straight-line distance.
+                float distance = Vector3.Distance(startPos, exitPoint);
+
+                // If it's the shortest so far, save it.
+                if (distance < shortestDistance)
+                {
+                    shortestDistance = distance;
+                    bestExit = exitPoint;
+                    foundExit = true;
+                }
+            }
+
+            return foundExit;
         }
     }
 }

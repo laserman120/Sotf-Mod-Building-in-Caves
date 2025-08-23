@@ -52,6 +52,7 @@ using SonsSdk.Attributes;
 using UnityEngine.Rendering;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using AllowBuildInCaves.Debug;
+using TheForest;
 
 namespace AllowBuildInCaves;
 
@@ -217,7 +218,7 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
             //Permanently Enable Cave Collision
             ForceActivateCaveCollision.ForceActivateCaveCollisions();
 
-            bool EnableDebugDrawing = false;
+            bool EnableDebugDrawing = Config.DebugMode.Value;
 
             CustomPathGeneration.ProcessAllCustomPaths(EnableDebugDrawing);
 
@@ -229,6 +230,19 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
 
             CustomHoleGeneration.CreateTerrainHole(terrainHoles);
         }
+
+        if (Config.DebugMode.Value)
+        {
+            RunStartupCommands().RunCoro();
+        }
+    }
+
+    private IEnumerator RunStartupCommands()
+    {
+        yield return new WaitForSeconds(5f);
+        DebugConsole.Instance.SendCommand("aishownavgraph on");
+        DebugConsole.Instance.SendCommand("aishowpaths on");
+        DebugConsole.Instance.SendCommand("aishowthoughts on");
     }
 
     //helper to fetch all actors

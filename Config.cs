@@ -15,6 +15,7 @@ public static class Config
     public static ConfigEntry<bool> SnowFix { get; private set; }
     public static ConfigEntry<bool> EasyBunkers { get; private set; }
     public static ConfigEntry<bool> ItemCollectUIFix { get; private set; }
+    public static ConfigEntry<bool> DebugMode { get; private set; }
     public static KeybindConfigEntry PosKey { get; private set; }
 
     public static void Init()
@@ -62,6 +63,14 @@ public static class Config
            true,
            "Disable collect Items UI inside Caves",
            "Will remove the items to collect ui when entering a cave");
+
+        Category = ConfigSystem.CreateFileCategory("DebugOptions", "DebugOptions", "AllowBuildInCaves.cfg");
+
+        DebugMode = Category.CreateEntry(
+           "enable_debug_mode",
+           false,
+           "Enable Debug Mode",
+           "Purely for debugging and development purposes, this option can be ignored");
 
         PosKey = Category.CreateKeybindEntry(
                "menu_key", // Set identifier
