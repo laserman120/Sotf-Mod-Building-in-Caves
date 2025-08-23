@@ -1,4 +1,5 @@
-﻿using Pathfinding;
+﻿using AllowBuildInCaves.Debug;
+using Pathfinding;
 using RedLoader;
 using SonsSdk;
 using System;
@@ -25,7 +26,7 @@ namespace AllowBuildInCaves.NavMeshEditing
             // Implement your logic to check NavMesh stability here
             if (AstarPath.active == null || AstarPath.active.data == null)
             {
-                RLog.Error("AstarPath is not active or data is null.");
+                DebugManager.DebugLogError("AstarPath is not active or data is null.");
                 return;
             }
 
@@ -33,7 +34,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
             int navmeshesProcessed = 0;
 
-            RLog.Msg($"Initializing NavMeshStabilityChecker...");
+            DebugManager.DebugLog($"Initializing NavMeshStabilityChecker...");
 
             foreach (Il2CppSystem.Object graphObject in graphs)
             {
@@ -43,7 +44,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
                 navMeshGraphs.Add(NavMeshGraph);
 
-                RLog.Msg($"Found NavMeshGraph to check: {NavMeshGraph.name}");
+                DebugManager.DebugLog($"Found NavMeshGraph to check: {NavMeshGraph.name}");
             }
         }
 
@@ -68,7 +69,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 NavMeshGraph graph = navMeshGraphs[i];
                 if (graph == null)
                 {
-                    RLog.Error($"NavMeshGraph at index {i} is null.");
+                    DebugManager.DebugLogError($"NavMeshGraph at index {i} is null.");
                     continue;
                 }
 
@@ -79,7 +80,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                         SonsTools.ShowMessage($"NavMeshGraph {graph.name} has collapsed and is in an unusable state, please report this bug together with your log file", 10f);
                         hasShownWarning = true;
                     }
-                    RLog.Msg($"NavMeshGraph {graph.name} has collapsed and is in an unusable state");
+                    DebugManager.DebugLog($"NavMeshGraph {graph.name} has collapsed and is in an unusable state");
                 }
             }
         }

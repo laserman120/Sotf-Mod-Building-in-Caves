@@ -131,44 +131,48 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
 
     public void OnGameActivated()
     {
-        //Add component to enforce nav masks
-        List<VailActorTypeId> CannibalList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Cannibal);
-        List<VailActorTypeId> CreepyList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Creepy);
-        List<VailActorTypeId> AnimalList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Animal);
-
-        List<VailActorTypeId> AllList = new List<VailActorTypeId>();
-        AllList.AddRange(CannibalList);
-        AllList.AddRange(CreepyList);
-        AllList.AddRange(AnimalList);
-
-        foreach (var actorType in AllList)
+        if (!Config.DontOpenCaves.Value && Config.AllowActorsInCaves.Value)
         {
-            VailActor actor = ActorTools.GetPrefab(actorType);
+            //Add component to enforce nav masks
+            List<VailActorTypeId> CannibalList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Cannibal);
+            List<VailActorTypeId> CreepyList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Creepy);
+            List<VailActorTypeId> AnimalList = GetActorTypesOfClass(Sons.Ai.Vail.VailActorClassId.Animal);
 
-            if (actor == null) { continue; }
+            List<VailActorTypeId> AllList = new List<VailActorTypeId>();
+            AllList.AddRange(CannibalList);
+            AllList.AddRange(CreepyList);
+            AllList.AddRange(AnimalList);
 
-            GameObject actorObject = actor.gameObject;
-
-            if (actorObject == null)
+            foreach (var actorType in AllList)
             {
-                continue;
+                VailActor actor = ActorTools.GetPrefab(actorType);
+
+                if (actor == null) { continue; }
+
+                GameObject actorObject = actor.gameObject;
+
+                if (actorObject == null)
+                {
+                    continue;
+                }
+
+                actorObject.GetOrAddComponent<BuildInCavesActorMaskChanger>();
             }
 
-            actorObject.GetOrAddComponent<BuildInCavesActorMaskChanger>();
+            ActorTools.GetPrefab(VailActorTypeId.Robby)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
+            ActorTools.GetPrefab(VailActorTypeId.Virginia)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
+
+
+            //Prepare astar for cave meshes
+
+            string AstarVersion = ReplaceExistingMeshes.FetchAstarVersion();
+            Debug.DebugManager.DebugLog($"Astar Version: {AstarVersion}");
+
+            ReplaceExistingMeshes.EnableCuttingOnCaveMeshes();
+
+            GameObject navMeshStabilityCheckerObject = new GameObject("NavMeshStabilityChecker");
+            NavMeshStabilityChecker navMeshStabilityChecker = navMeshStabilityCheckerObject.AddComponent<NavMeshStabilityChecker>();
         }
-
-        ActorTools.GetPrefab(VailActorTypeId.Robby)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
-        ActorTools.GetPrefab(VailActorTypeId.Virginia)?.gameObject.GetOrAddComponent<SpecialActorCaveFixes>();
-
-        //Prepare astar for cave meshes
-
-        string AstarVersion = ReplaceExistingMeshes.FetchAstarVersion();
-        RLog.Msg($"Astar Version: {AstarVersion}");
-
-        ReplaceExistingMeshes.EnableCuttingOnCaveMeshes();
-
-        GameObject navMeshStabilityCheckerObject = new GameObject("NavMeshStabilityChecker");
-        NavMeshStabilityChecker navMeshStabilityChecker = navMeshStabilityCheckerObject.AddComponent<NavMeshStabilityChecker>();
     }
 
     protected override void OnGameStart()
@@ -239,9 +243,11 @@ public class AllowBuildInCaves : SonsMod, IOnGameActivatedReceiver
 
     private IEnumerator RunStartupCommands()
     {
-        yield return new WaitForSeconds(5f);
+        yield return new WaitForSeconds(10f);
         DebugConsole.Instance.SendCommand("aishownavgraph on");
+        yield return new WaitForSeconds(1f);
         DebugConsole.Instance.SendCommand("aishowpaths on");
+        yield return new WaitForSeconds(1f);
         DebugConsole.Instance.SendCommand("aishowthoughts on");
     }
 

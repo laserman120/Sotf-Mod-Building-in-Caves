@@ -68,17 +68,6 @@ public class BuildInCavesActorMaskChanger : MonoBehaviour
 
     private void Update()
     {
-        // Custom reimplementation to keepAboveTerrain for Robby and Virginia as a failsafe
-        if(vailActor.TypeId == VailActorTypeId.Robby || vailActor.TypeId == VailActorTypeId.Virginia)
-        {
-            if(vailActor.transform.position.y < -250f)
-            {
-                float terrainHeight = TerrainUtilities.GetTerrainHeight(vailActor.transform.position);
-                vailActor.transform.position = new Vector3(vailActor.transform.position.x, terrainHeight + 1f, vailActor.transform.position.z);
-            }
-        }
-
-
         if (vailActor == null)
         {
             vailActor = GetComponent<VailActor>();
@@ -177,11 +166,34 @@ public class SpecialActorCaveFixes : MonoBehaviour
         boneCollider.m_Height = 1f;
     }
 
+    //Late update for teleporting upwards in the case that the actor goes below the map
+    private void LateUpdate()
+    {
+        if (vailActor.TypeId == VailActorTypeId.Robby || vailActor.TypeId == VailActorTypeId.Virginia)
+        {
+            if (vailActor.transform.position.y < -250f)
+            {
+                float terrainHeight = TerrainUtilities.GetTerrainHeight(vailActor.transform.position);
+                vailActor.transform.position = new Vector3(vailActor.transform.position.x, terrainHeight + 1f, vailActor.transform.position.z);
+            }
+        }
+    }
+
     private void Update()
     {
         if (vailActor.GetNavGraphMask() != GraphMask.everything)
         {
             vailActor.SetNavGraphMask(GraphMask.everything);
+        }
+
+        // Custom reimplementation to keepAboveTerrain for Robby and Virginia as a failsafe
+        if (vailActor.TypeId == VailActorTypeId.Robby || vailActor.TypeId == VailActorTypeId.Virginia)
+        {
+            if (vailActor.transform.position.y < -250f)
+            {
+                float terrainHeight = TerrainUtilities.GetTerrainHeight(vailActor.transform.position);
+                vailActor.transform.position = new Vector3(vailActor.transform.position.x, terrainHeight + 1f, vailActor.transform.position.z);
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Endnight.Types;
+﻿using AllowBuildInCaves.Debug;
+using Endnight.Types;
 using Endnight.Utilities;
 using Pathfinding;
 using RedLoader;
@@ -33,7 +34,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
         public static void ForceActivateCaveCollisions()
         {
-            RLog.Msg("Searching Cave Collision");
+            DebugManager.DebugLog("Searching Cave Collision");
             GameObject CaveCollisionHolder = new GameObject("CaveCollisionHolder");
 
             GameObject[] allLoadedGameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
@@ -51,7 +52,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                             Transform child = potentialParent.transform.GetChild(i);
                             if (child.name.ToLower().Contains("collision"))
                             {
-                                RLog.Msg(potentialParent.name + "  -> Found child: " + child.name);
+                                DebugManager.DebugLog(potentialParent.name + "  -> Found child: " + child.name);
 
                                 //special cases
                                 if (potentialParent.name.StartsWith("CaveBInternal-Any"))
@@ -74,7 +75,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                                 Transform child = potentialParent.transform.GetChild(i);
                                 if (child.name.ToLower().Contains("collider"))
                                 {
-                                    RLog.Msg(potentialParent.name + "  -> Found child: " + child.name);
+                                    DebugManager.DebugLog(potentialParent.name + "  -> Found child: " + child.name);
                                     child.SetParent(SpecificCaveHolder.transform, true); // Keep world position
                                 }
                             }
@@ -83,7 +84,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 }
             }
 
-            RLog.Msg("Cave Collision search complete");
+            DebugManager.DebugLog("Cave Collision search complete");
         }
     }
 }
@@ -119,7 +120,7 @@ public class ObjectDestroyer : MonoBehaviour
 
             if(foundChild != null)
             {
-                RLog.Msg(gameObject.name + "Found object for destruction: " + foundChild.name);
+                DebugManager.DebugLog(gameObject.name + "Found object for destruction: " + foundChild.name);
                 KeepObjectDeactivated objectDeactivated = foundChild.gameObject.GetOrAddComponent<KeepObjectDeactivated>();
 
                 if(objectDeactivated != null)

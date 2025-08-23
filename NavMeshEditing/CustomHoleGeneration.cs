@@ -1,4 +1,5 @@
-﻿using Endnight.Environment;
+﻿using AllowBuildInCaves.Debug;
+using Endnight.Environment;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using RedLoader;
 using System;
@@ -36,23 +37,23 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Terrain terrain = activeTerrains[i];
                 if (terrain == null)
                 {
-                    RLog.Error("Terrain is null, skipping terrain processing.");
+                    DebugManager.DebugLogError("Terrain is null, skipping terrain processing.");
                     continue;
                 }
 
                 if (terrain.name.StartsWith("Site02"))
                 {
-                    RLog.Msg($"Processing terrain: {terrain.name}");
+                    DebugManager.DebugLog($"Processing terrain: {terrain.name}");
                     TerrainData td = terrain.terrainData;
 
                     int holeMapResolution = td.holesResolution;
-                    RLog.Msg($"Hole map resolution for {terrain.name}: {holeMapResolution}x{holeMapResolution}");
+                    DebugManager.DebugLog($"Hole map resolution for {terrain.name}: {holeMapResolution}x{holeMapResolution}");
 
                     RenderTexture holeProcessingRT = RenderTexture.GetTemporary(holeMapResolution, holeMapResolution, 0, RenderTextureFormat.R8);
 
                     if (holeProcessingRT == null)
                     {
-                        RLog.Error("Failed to get temporary RenderTexture.");
+                        DebugManager.DebugLogError("Failed to get temporary RenderTexture.");
                         continue;
                     }
 
@@ -62,12 +63,12 @@ namespace AllowBuildInCaves.NavMeshEditing
                     Texture existingHolesTexture = td.holesTexture;
                     if (existingHolesTexture != null)
                     {
-                        RLog.Msg("Existing holesTexture found. Blitting to processing RT.");
+                        DebugManager.DebugLog("Existing holesTexture found. Blitting to processing RT.");
                         Graphics.Blit(existingHolesTexture, holeProcessingRT);
                     }
                     else
                     {
-                        RLog.Msg("No existing holesTexture found or it's null. Clearing processing RT to 'all solid'.");
+                        DebugManager.DebugLog("No existing holesTexture found or it's null. Clearing processing RT to 'all solid'.");
                         GL.Clear(true, true, Color.white);
                     }
 
@@ -81,19 +82,19 @@ namespace AllowBuildInCaves.NavMeshEditing
                     int destinationYOnHoleMap = 0;
                     bool allowDelayedCPUSync = true;
 
-                    RLog.Msg($"Calling Internal_CopyActiveRenderTextureToHoles for {terrain.name}");
-                    RLog.Msg($"  Source Rect: x={rectToCopyFromRT.x}, y={rectToCopyFromRT.y}, w={rectToCopyFromRT.width}, h={rectToCopyFromRT.height}");
-                    RLog.Msg($"  Dest Coords: x={destinationXOnHoleMap}, y={destinationYOnHoleMap}");
-                    RLog.Msg($"  Delayed Sync: {allowDelayedCPUSync}");
+                    DebugManager.DebugLog($"Calling Internal_CopyActiveRenderTextureToHoles for {terrain.name}");
+                    DebugManager.DebugLog($"  Source Rect: x={rectToCopyFromRT.x}, y={rectToCopyFromRT.y}, w={rectToCopyFromRT.width}, h={rectToCopyFromRT.height}");
+                    DebugManager.DebugLog($"  Dest Coords: x={destinationXOnHoleMap}, y={destinationYOnHoleMap}");
+                    DebugManager.DebugLog($"  Delayed Sync: {allowDelayedCPUSync}");
 
                     try
                     {
                         td.Internal_CopyActiveRenderTextureToHoles(rectToCopyFromRT, destinationXOnHoleMap, destinationYOnHoleMap, allowDelayedCPUSync);
-                        RLog.Msg("Successfully called Internal_CopyActiveRenderTextureToHoles.");
+                        DebugManager.DebugLog("Successfully called Internal_CopyActiveRenderTextureToHoles.");
                     }
                     catch (System.Exception e)
                     {
-                        RLog.Error($"Exception calling Internal_CopyActiveRenderTextureToHoles: {e.Message}\n{e.StackTrace}");
+                        DebugManager.DebugLogError($"Exception calling Internal_CopyActiveRenderTextureToHoles: {e.Message}\n{e.StackTrace}");
                     }
 
                     //finally sync collider with holes
@@ -121,11 +122,11 @@ namespace AllowBuildInCaves.NavMeshEditing
                 int rotationDegrees = hole.Rotation;
 
 
-                RLog.Msg($"DrawRectangularHoleOnActiveRT called with: H={rectHeight}, W={rectWidth}, Pos={worldCenterPosition}, Rot={rotationDegrees}, Res={holeMapResolution}");
+                DebugManager.DebugLog($"DrawRectangularHoleOnActiveRT called with: H={rectHeight}, W={rectWidth}, Pos={worldCenterPosition}, Rot={rotationDegrees}, Res={holeMapResolution}");
 
                 if (drawMaterial == null)
                 {
-                    RLog.Error("Draw material is null in DrawRectangularHoleOnActiveRT.");
+                    DebugManager.DebugLogError("Draw material is null in DrawRectangularHoleOnActiveRT.");
                     return;
                 }
                 drawMaterial.SetPass(0); // Ensure material is set to draw the desired "hole" color
@@ -158,7 +159,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 };
 
                 Vector3[] pixelVertices = new Vector3[4]; // Will store Z as 0 for GL.Vertex3
-                RLog.Msg("Calculating Pixel Vertices (Mapping to Terrain [-2000,+2000] -> Hole Texture [0,holeMapRes]):");
+                DebugManager.DebugLog("Calculating Pixel Vertices (Mapping to Terrain [-2000,+2000] -> Hole Texture [0,holeMapRes]):");
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -186,10 +187,10 @@ namespace AllowBuildInCaves.NavMeshEditing
 
                     pixelVertices[i] = new Vector3(Mathf.Floor(clampedU), Mathf.Floor(clampedV), 0f);
 
-                    RLog.Msg($"  Corner {i}: World({currentWorldX:F2},{currentWorldZ:F2}) => NormOnTerrain({normalizedX_onTerrain:F4},{normalizedZ_onTerrain_fromMin:F4}) => PixelFloat({pixelU_float:F2},{pixelV_float:F2}) => PixelInt({pixelVertices[i].x},{pixelVertices[i].y})");
+                    DebugManager.DebugLog($"  Corner {i}: World({currentWorldX:F2},{currentWorldZ:F2}) => NormOnTerrain({normalizedX_onTerrain:F4},{normalizedZ_onTerrain_fromMin:F4}) => PixelFloat({pixelU_float:F2},{pixelV_float:F2}) => PixelInt({pixelVertices[i].x},{pixelVertices[i].y})");
                 }
 
-                RLog.Msg($"Drawing Quad at Pixels: V0({pixelVertices[0].x},{pixelVertices[0].y}), V1({pixelVertices[1].x},{pixelVertices[1].y}), V2({pixelVertices[2].x},{pixelVertices[2].y}), V3({pixelVertices[3].x},{pixelVertices[3].y})");
+                DebugManager.DebugLog($"Drawing Quad at Pixels: V0({pixelVertices[0].x},{pixelVertices[0].y}), V1({pixelVertices[1].x},{pixelVertices[1].y}), V2({pixelVertices[2].x},{pixelVertices[2].y}), V3({pixelVertices[3].x},{pixelVertices[3].y})");
 
                 GL.Begin(GL.QUADS);
                 GL.Vertex(pixelVertices[0]); // Corresponds to local Top-Left

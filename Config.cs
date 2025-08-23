@@ -16,6 +16,7 @@ public static class Config
     public static ConfigEntry<bool> EasyBunkers { get; private set; }
     public static ConfigEntry<bool> ItemCollectUIFix { get; private set; }
     public static ConfigEntry<bool> DebugMode { get; private set; }
+    public static ConfigEntry<bool> ExportMeshes { get; set; }
     public static KeybindConfigEntry PosKey { get; private set; }
 
     public static void Init()
@@ -71,6 +72,13 @@ public static class Config
            false,
            "Enable Debug Mode",
            "Purely for debugging and development purposes, this option can be ignored");
+
+        ExportMeshes = Category.CreateEntry(
+           "export_meshes",
+           false,
+           "Export Meshes",
+           "Exports all NavMeshes to the Mod Folder when loading into the game.");
+
 
         PosKey = Category.CreateKeybindEntry(
                "menu_key", // Set identifier

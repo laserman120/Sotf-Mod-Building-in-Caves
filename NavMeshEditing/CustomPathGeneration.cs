@@ -20,6 +20,7 @@ using UnityEngine.UIElements;
 using TheForest.Utils;
 using System.Globalization;
 using SonsSdk.Attributes;
+using AllowBuildInCaves.Debug;
 
 namespace AllowBuildInCaves.NavMeshEditing
 {
@@ -56,7 +57,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                     }))
                 .ToList();
 
-            RLog.Msg("Found " + pathDefinitions.Count + " custom path lists to process.");
+            DebugManager.DebugLog("Found " + pathDefinitions.Count + " custom path lists to process.");
 
             foreach (var definition in pathDefinitions)
             {
@@ -66,13 +67,13 @@ namespace AllowBuildInCaves.NavMeshEditing
 
                 if (pathPoints == null || pathPoints.Count < 2)
                 {
-                    RLog.Error($"Path points list for {className}.{pathNameFromField} is null or has less than 2 points, skipping.");
+                    DebugManager.DebugLogError($"Path points list for {className}.{pathNameFromField} is null or has less than 2 points, skipping.");
                     continue;
                 }
 
                 string objectName = pathNameFromField;
 
-                RLog.Msg($"Processing custom path: {className}.{pathNameFromField}");
+                DebugManager.DebugLog($"Processing custom path: {className}.{pathNameFromField}");
                 GenerateCustomPath(pathPoints, 0.5f, objectName, false, showDebug);
             }
         }
@@ -84,10 +85,10 @@ namespace AllowBuildInCaves.NavMeshEditing
                 NavMeshEditing.CustomPathGeneration.DebugPlaceSpheres(IPoints, 0.3f, Color.yellow, "_DebugPathPoints" + objectName);
             }
 
-            RLog.Msg("Attempting to create nav mesh link for " + objectName);
+            DebugManager.DebugLog("Attempting to create nav mesh link for " + objectName);
             if (IPoints.Count < 2)
             {
-                RLog.Error(objectName + " At least 2 points are required to create a navmesh line.");
+                DebugManager.DebugLogError(objectName + " At least 2 points are required to create a navmesh line.");
                 return false;
             }
 
@@ -194,13 +195,13 @@ namespace AllowBuildInCaves.NavMeshEditing
 
                         if (DoLinesIntersect(vertices[1], vertices[2], vertices[0], vertices[3]))
                         {
-                            RLog.Warning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect.");
+                            DebugManager.DebugLogWarning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect.");
                             triangles.Add(0); triangles.Add(2); triangles.Add(3);
                             triangles.Add(0); triangles.Add(3); triangles.Add(1);
                         }
                         else
                         {
-                            RLog.Warning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect. Using alternative triangulation.");
+                            DebugManager.DebugLogWarning(objectName + ": First segment (IPoints[0] to IPoints[1]) diagonals do NOT intersect. Using alternative triangulation.");
                             triangles.Add(0); triangles.Add(2); triangles.Add(1);
                             triangles.Add(0); triangles.Add(2); triangles.Add(3);
 
@@ -296,13 +297,13 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Vector3 connectionPointStart = firstIPointPos + Vector3.down * offset;
                 if (TryAddNavLinkToTerrain(firstIPointPos, connectionPointStart, AllowBuildInCaves.graphMask, navMeshAdder))
                 {
-                    RLog.Msg(objectName + " Found First connection Point with mask " + 1);
+                    DebugManager.DebugLog(objectName + " Found First connection Point with mask " + 1);
                     isConnectedFirst = true;
                     break;
                 }
 
             }
-            if (!isConnectedFirst) RLog.Error(objectName + " Failed to connect to terrain navmesh on first point");
+            if (!isConnectedFirst) DebugManager.DebugLogError(objectName + " Failed to connect to terrain navmesh on first point");
 
             Vector3 lastIPointPos = IPoints[IPoints.Count - 1].Position;
             bool isConnectedLast = false;
@@ -311,13 +312,13 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Vector3 connectionPointEnd = lastIPointPos + Vector3.down * offset;
                 if (TryAddNavLinkToTerrain(lastIPointPos, connectionPointEnd, AllowBuildInCaves.graphMask, navMeshAdder))
                 {
-                    RLog.Msg(objectName + " Found Last connection Point with mask " + 1);
+                    DebugManager.DebugLog(objectName + " Found Last connection Point with mask " + 1);
                     isConnectedLast = true;
                     break;
                 }
             }
 
-            if (!isConnectedLast) RLog.Error(objectName + " Failed to connect to terrain navmesh on last point! Position: " + lastIPointPos.ToString());
+            if (!isConnectedLast) DebugManager.DebugLogError(objectName + " Failed to connect to terrain navmesh on last point! Position: " + lastIPointPos.ToString());
 
             return true;
         }
@@ -368,11 +369,11 @@ namespace AllowBuildInCaves.NavMeshEditing
         {
             bool flag;
             Vector3 closestNavMeshPoint = AiUtilities.GetClosestNavMeshPoint(checkPoint, navGraphMask, out flag);
-            RLog.Msg("Found closest nav mesh point at: " + closestNavMeshPoint + " flag: " + flag);
+            DebugManager.DebugLog("Found closest nav mesh point at: " + closestNavMeshPoint + " flag: " + flag);
             navMeshAdder._navLinkTests.Add(new NavMeshCustomMeshAdd.NavLinkLocations(linkPoint, checkPoint, checkPoint, false, false, false, false));
             if (!flag || Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f) > navMeshAdder._navLinkMaxDistance)
             {
-                RLog.Msg("failed to add navlink due to YMargin distance of: " + Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f));
+                DebugManager.DebugLog("failed to add navlink due to YMargin distance of: " + Vector3ExtensionMethods.DistanceWithYMargin(checkPoint, closestNavMeshPoint, 0.25f));
                 return false;
             }
             GameObject gameObject = new GameObject("start");
@@ -431,7 +432,7 @@ namespace AllowBuildInCaves.NavMeshEditing
         {
             if (iPoints == null || iPoints.Count == 0)
             {
-                RLog.Warning("DebugPlaceSpheres: No points provided to visualize.");
+                DebugManager.DebugLogWarning("DebugPlaceSpheres: No points provided to visualize.");
                 return;
             }
 
@@ -461,7 +462,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                     cube.transform.SetParent(parentTransform, true);
                 }
             }
-            RLog.Msg($"DebugPlaceSpheres: Placed {iPoints.Count} debug spheres" + (parentTransform != null ? $" under '{parentObjectName}'." : "."));
+            DebugManager.DebugLog($"DebugPlaceSpheres: Placed {iPoints.Count} debug spheres" + (parentTransform != null ? $" under '{parentObjectName}'." : "."));
         }
 
         public static void LogCurrentPositionData()
@@ -502,7 +503,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 }
             }
             sb.AppendLine("};");
-            RLog.Msg("" + sb.ToString() + "");
+            DebugManager.DebugLog("" + sb.ToString() + "");
         }
     }
 

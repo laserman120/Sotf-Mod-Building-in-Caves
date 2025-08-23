@@ -1,4 +1,5 @@
-﻿using Il2CppInterop.Runtime;
+﻿using AllowBuildInCaves.Debug;
+using Il2CppInterop.Runtime;
 using Il2CppSystem;
 using Pathfinding;
 using RedLoader;
@@ -35,7 +36,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
             if (localVertices == null || localVertices.Length < 3)
             {
-                RLog.Error("Not enough local vertices to select diverse points.");
+                DebugManager.DebugLogError("Not enough local vertices to select diverse points.");
                 return false;
             }
 
@@ -55,11 +56,11 @@ namespace AllowBuildInCaves.NavMeshEditing
 
             if (outIdxB == -1 || maxDistSqToA < 0.0001f) // Check if a distinct second point was found
             {
-                RLog.Warning("Could not find a distinct second point. Using index 1 if available.");
+                DebugManager.DebugLogWarning("Could not find a distinct second point. Using index 1 if available.");
                 outIdxB = (localVertices.Length > 1) ? 1 : -1;
                 if (outIdxB == outIdxA || outIdxB == -1)
                 {
-                    RLog.Error("Failed to select distinct second point."); return false;
+                    DebugManager.DebugLogError("Failed to select distinct second point."); return false;
                 }
             }
 
@@ -82,7 +83,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
             if (outIdxC == -1 || maxTriangleAreaDoubled < 0.0001f) // Check if a non-collinear third point was found
             {
-                RLog.Warning("Could not find a distinct non-collinear third point. Attempting fallback.");
+                DebugManager.DebugLogWarning("Could not find a distinct non-collinear third point. Attempting fallback.");
                 // Fallback: pick the next available different index
                 for (int i = 0; i < localVertices.Length; i++)
                 {
@@ -94,17 +95,17 @@ namespace AllowBuildInCaves.NavMeshEditing
                 }
                 if (outIdxC == -1)
                 {
-                    RLog.Error("Failed to select distinct third point."); return false;
+                    DebugManager.DebugLogError("Failed to select distinct third point."); return false;
                 }
             }
 
-            RLog.Msg($"  Selected diverse local indices: A={outIdxA}, B={outIdxB}, C={outIdxC}");
+            DebugManager.DebugLog($"  Selected diverse local indices: A={outIdxA}, B={outIdxB}, C={outIdxC}");
             return true;
         }
 
         public static void AdjustRecastGraphSettings()
         {
-            RLog.Msg("Attempting to change RecastGraph settings for cave meshes...");
+            DebugManager.DebugLog("Attempting to change RecastGraph settings for cave meshes...");
             Il2CppSystem.Collections.IEnumerable graphs = AstarPath.active.data.FindGraphsOfType(Il2CppSystem.RuntimeType.GetType("Pathfinding.RecastGraph"));
 
             foreach (Il2CppSystem.Object graphObject in graphs)
@@ -112,10 +113,10 @@ namespace AllowBuildInCaves.NavMeshEditing
                 if (graphObject == null) continue;
                 Pathfinding.RecastGraph recastGraph = graphObject.TryCast<Pathfinding.RecastGraph>();
                 if (recastGraph == null) continue;
-                RLog.Msg($"Processing RecastGraph: '{recastGraph.name}'");
+                DebugManager.DebugLog($"Processing RecastGraph: '{recastGraph.name}'");
                 recastGraph.cellSize = 0.10f;
             }
-            RLog.Msg("RecastGraph settings adjusted for cave meshes. Creating meshes...");
+            DebugManager.DebugLog("RecastGraph settings adjusted for cave meshes. Creating meshes...");
 
         }
 
@@ -123,7 +124,7 @@ namespace AllowBuildInCaves.NavMeshEditing
         {
             if (AstarPath.active == null || AstarPath.active.data == null)
             {
-                RLog.Error("AstarPath is not active or data is null.");
+                DebugManager.DebugLogError("AstarPath is not active or data is null.");
                 return;
             }
 
@@ -138,7 +139,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 if (originalGraph == null) continue;
 
                 originalGraph.enableNavmeshCutting = true;
-                RLog.Msg($"Enabled Navmesh Cutting for graph: '{originalGraph.name}'");
+                DebugManager.DebugLog($"Enabled Navmesh Cutting for graph: '{originalGraph.name}'");
 
                 allNavMeshGraphs.Add(originalGraph);
 
@@ -154,8 +155,11 @@ namespace AllowBuildInCaves.NavMeshEditing
                 // --- STEP 1: Create the new, pre-scaled mesh ---
                 Mesh scaledMesh = CreateCorrectlyScaledMesh(originalMesh, originalScale);
 
-                //bool exportfinished = ExportMesh(scaledMesh, $"D:/SteamLibrary/steamapps/common/Sons Of The Forest/Mods/AllowBuildInCaves/{originalGraph.name}_ScaledMesh.obj");
-                //RLog.Msg("Export completed" + (exportfinished ? " successfully." : " with errors."));
+                if (Config.ExportMeshes.Value)
+                {
+                    bool exportfinished = ExportMesh(scaledMesh, $"D:/SteamLibrary/steamapps/common/Sons Of The Forest/Mods/AllowBuildInCaves/{originalGraph.name}_ScaledMesh.obj");
+                    DebugManager.DebugLog("Export completed" + (exportfinished ? " successfully." : " with errors."));
+                }
 
                 string FileName = originalGraph.name;
                 string filePath = $"Mods/AllowBuildInCaves/";
@@ -165,19 +169,19 @@ namespace AllowBuildInCaves.NavMeshEditing
                     if(fixedMesh != null)
                     {
                         originalGraph.sourceMesh = fixedMesh;
-                        RLog.Msg($"Using fixed mesh for {originalGraph.name} from {filePath + FileName + "_Fixed.obj"}");
+                        DebugManager.DebugLog($"Using fixed mesh for {originalGraph.name} from {filePath + FileName + "_Fixed.obj"}");
                     }
                 } else
                 {
                     originalGraph.sourceMesh = scaledMesh;
-                    RLog.Msg($"Using scaled mesh for {originalGraph.name}");
+                    DebugManager.DebugLog($"Using scaled mesh for {originalGraph.name}");
                 }
 
                 //Mesh attemptedFixedMesh = MeshRepairUtility.RepairUnityMesh(scaledMesh, 0.5f, 10); //, scaledMesh.vertexCount
                 //originalGraph.sourceMesh = attemptedFixedMesh;
 
                 //bool exportfinished = ExportMesh(attemptedFixedMesh, $"D:/SteamLibrary/steamapps/common/Sons Of The Forest/Mods/AllowBuildInCaves/{originalGraph.name}_AutomaticFixTest.obj");
-                //RLog.Msg("Export completed" + (exportfinished ? " successfully." : " with errors."));
+                //DebugManager.DebugLog("Export completed" + (exportfinished ? " successfully." : " with errors."));
 
 
 
@@ -191,16 +195,21 @@ namespace AllowBuildInCaves.NavMeshEditing
                 navmeshesProcessed++;
             }
 
-            if(navmeshesProcessed > 0)
+            if (Config.ExportMeshes.Value)
             {
-                RLog.Msg($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
+                Config.ExportMeshes.Value = false;
+            }
+
+            if (navmeshesProcessed > 0)
+            {
+                DebugManager.DebugLog($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
                 AstarPath.active.FlushGraphUpdates(); 
-                RLog.Msg("Rescanning the AstarPath..."); 
+                DebugManager.DebugLog("Rescanning the AstarPath..."); 
                 AstarPath.active.Scan(); 
             }
             else
             {
-                RLog.Msg("No NavMeshGraphs were processed for cutting.");
+                DebugManager.DebugLog("No NavMeshGraphs were processed for cutting.");
             }
         }
 
@@ -345,7 +354,7 @@ namespace AllowBuildInCaves.NavMeshEditing
         {
             if (AstarPath.active == null || AstarPath.active.data == null)
             {
-                RLog.Error("AstarPath is not active or data is null.");
+                DebugManager.DebugLogError("AstarPath is not active or data is null.");
                 return;
             }
 
@@ -379,7 +388,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 UnityEngine.Mesh sourceMeshForInfo = originalGraph.sourceMesh;
                 if (sourceMeshForInfo == null) continue;
 
-                RLog.Msg($"Processing graph: '{originalGraph.name}' (Source: '{sourceMeshForInfo.name}') using GetVertex() and diverse point alignment.");
+                DebugManager.DebugLog($"Processing graph: '{originalGraph.name}' (Source: '{sourceMeshForInfo.name}') using GetVertex() and diverse point alignment.");
 
                 Vector3[] sourceLocalVerticesRaw = sourceMeshForInfo.vertices;
                 int[] sourceLocalTriangles = sourceMeshForInfo.triangles;
@@ -393,12 +402,12 @@ namespace AllowBuildInCaves.NavMeshEditing
                 }
                 else if (!GetDiverseLocalPointsIndices(sourceLocalVerticesRaw, out idxA, out idxB, out idxC))
                 {
-                    RLog.Warning($"  Could not select 3 diverse points from source mesh '{sourceMeshForInfo.name}'. Skipping alignment.");
+                    DebugManager.DebugLogWarning($"  Could not select 3 diverse points from source mesh '{sourceMeshForInfo.name}'. Skipping alignment.");
                     continue;
                 }
 
                 float graphDeclaredScale = originalGraph.scale;
-                RLog.Msg($"  Graph Scale: {graphDeclaredScale:F1}. Using local indices: A={idxA}, B={idxB}, C={idxC}");
+                DebugManager.DebugLog($"  Graph Scale: {graphDeclaredScale:F1}. Using local indices: A={idxA}, B={idxB}, C={idxC}");
 
                 // 1. Define Local Reference Points (from sourceMesh, scaled, using diverse indices)
                 Vector3 L_A_local = sourceLocalVerticesRaw[idxA];
@@ -408,7 +417,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 Vector3 SL_A = L_A_local * graphDeclaredScale;
                 Vector3 SL_B = L_B_local * graphDeclaredScale;
                 Vector3 SL_C = L_C_local * graphDeclaredScale;
-                RLog.Msg($"    Scaled Local Ref Points: SL_A={SL_A.ToString("F3")}, SL_B={SL_B.ToString("F3")}, SL_C={SL_C.ToString("F3")}");
+                DebugManager.DebugLog($"    Scaled Local Ref Points: SL_A={SL_A.ToString("F3")}, SL_B={SL_B.ToString("F3")}, SL_C={SL_C.ToString("F3")}");
 
                 // 2. Define Target World Anchor Points (using originalGraph.GetVertex() with corresponding diverse indices)
                 Vector3 W_A_target, W_B_target, W_C_target;
@@ -417,24 +426,24 @@ namespace AllowBuildInCaves.NavMeshEditing
                     Pathfinding.Int3 i3_A = originalGraph.GetVertex(idxA);
                     Pathfinding.Int3 i3_B = originalGraph.GetVertex(idxB);
                     Pathfinding.Int3 i3_C = originalGraph.GetVertex(idxC);
-                    RLog.Msg($"    Raw Int3 from GetVertex({idxA}): {i3_A.ToString()}");
-                    RLog.Msg($"    Raw Int3 from GetVertex({idxB}): {i3_B.ToString()}");
-                    RLog.Msg($"    Raw Int3 from GetVertex({idxC}): {i3_C.ToString()}");
+                    DebugManager.DebugLog($"    Raw Int3 from GetVertex({idxA}): {i3_A.ToString()}");
+                    DebugManager.DebugLog($"    Raw Int3 from GetVertex({idxB}): {i3_B.ToString()}");
+                    DebugManager.DebugLog($"    Raw Int3 from GetVertex({idxC}): {i3_C.ToString()}");
 
                     if (originalGraph.transform == null)
                     {
-                        RLog.Error($"originalGraph.transform is null for {originalGraph.name}.");
+                        DebugManager.DebugLogError($"originalGraph.transform is null for {originalGraph.name}.");
                         continue;
                     }
                     W_A_target = originalGraph.transform.Transform((Vector3)i3_A);
                     W_B_target = originalGraph.transform.Transform((Vector3)i3_B);
                     W_C_target = originalGraph.transform.Transform((Vector3)i3_C);
-                    RLog.Msg($"    Target World Points (from GetVertex): W_A={W_A_target.ToString("F3")}, W_B={W_B_target.ToString("F3")}, W_C={W_C_target.ToString("F3")}");
+                    DebugManager.DebugLog($"    Target World Points (from GetVertex): W_A={W_A_target.ToString("F3")}, W_B={W_B_target.ToString("F3")}, W_C={W_C_target.ToString("F3")}");
                 }
                 catch (System.Exception ex)
                 {
-                    RLog.Error($"  Error using originalGraph.GetVertex({idxA}/{idxB}/{idxC}) or transforming: {ex.Message}. Skipping alignment.");
-                    RLog.Error($"  Exception Details: {ex.ToString()}");
+                    DebugManager.DebugLogError($"  Error using originalGraph.GetVertex({idxA}/{idxB}/{idxC}) or transforming: {ex.Message}. Skipping alignment.");
+                    DebugManager.DebugLogError($"  Exception Details: {ex.ToString()}");
                     continue;
                 }
 
@@ -453,7 +462,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                     Vector3.Cross(localRef_Vec_AB, localRef_Vec_AC).sqrMagnitude < 0.0001f ||
                     Vector3.Cross(worldTarget_Vec_AB, worldTarget_Vec_AC).sqrMagnitude < 0.0001f)
                 {
-                    RLog.Warning("  Reference points for alignment are collinear or too close. Using default transform (unrotated, placed by first point).");
+                    DebugManager.DebugLogWarning("  Reference points for alignment are collinear or too close. Using default transform (unrotated, placed by first point).");
                     // R_solved remains identity, T_solved is already W_A_target - SL_A
                 }
                 else
@@ -473,7 +482,7 @@ namespace AllowBuildInCaves.NavMeshEditing
 
                     R_solved = worldTargetFrameRotation * Quaternion.Inverse(localFrameRotation);
                     T_solved = W_A_target - (R_solved * SL_A);
-                    RLog.Msg($"  Alignment Calculated: R_solved(Euler)={R_solved.eulerAngles.ToString("F3")}, T_solved={T_solved.ToString("F3")}");
+                    DebugManager.DebugLog($"  Alignment Calculated: R_solved(Euler)={R_solved.eulerAngles.ToString("F3")}, T_solved={T_solved.ToString("F3")}");
                 }
 
                 // 4. Create the mesh for NavmeshAdd (vertices are scaled source mesh)
@@ -488,7 +497,7 @@ namespace AllowBuildInCaves.NavMeshEditing
                 meshForGO.SetTriangles(sourceLocalTriangles, 0);
                 meshForGO.RecalculateNormals();
                 meshForGO.RecalculateBounds();
-                RLog.Msg($"  Mesh for GO '{meshForGO.name}' created. Its local bounds center: {meshForGO.bounds.center.ToString("F5")}");
+                DebugManager.DebugLog($"  Mesh for GO '{meshForGO.name}' created. Its local bounds center: {meshForGO.bounds.center.ToString("F5")}");
 
                 GameObject meshHolderGO = new GameObject($"ScannableCaveMesh_{originalGraph.name}");
                 meshHolderGO.transform.position = Vector3.zero;
@@ -505,15 +514,15 @@ namespace AllowBuildInCaves.NavMeshEditing
                 const int SCAN_LAYER = 26;
                 meshHolderGO.layer = SCAN_LAYER;
 
-                RLog.Msg($"  Set up Scannable GameObject '{meshHolderGO.name}' on layer {SCAN_LAYER}.");
-                RLog.Msg($"    GO P: {meshHolderGO.transform.position.ToString("F3")}, GO R(Euler): {meshHolderGO.transform.rotation.eulerAngles.ToString("F3")}");
+                DebugManager.DebugLog($"  Set up Scannable GameObject '{meshHolderGO.name}' on layer {SCAN_LAYER}.");
+                DebugManager.DebugLog($"    GO P: {meshHolderGO.transform.position.ToString("F3")}, GO R(Euler): {meshHolderGO.transform.rotation.eulerAngles.ToString("F3")}");
 
                 Vector3 actual_W_A = meshHolderGO.transform.TransformPoint(SL_A);
-                RLog.Msg($"    Verify W_A (idx {idxA}): Target={W_A_target.ToString("F3")}, Actual={actual_W_A.ToString("F3")}, DiffMag={(W_A_target - actual_W_A).magnitude:F5}");
+                DebugManager.DebugLog($"    Verify W_A (idx {idxA}): Target={W_A_target.ToString("F3")}, Actual={actual_W_A.ToString("F3")}, DiffMag={(W_A_target - actual_W_A).magnitude:F5}");
                 Vector3 actual_W_B = meshHolderGO.transform.TransformPoint(SL_B);
-                RLog.Msg($"    Verify W_B (idx {idxB}): Target={W_B_target.ToString("F3")}, Actual={actual_W_B.ToString("F3")}, DiffMag={(W_B_target - actual_W_B).magnitude:F5}");
+                DebugManager.DebugLog($"    Verify W_B (idx {idxB}): Target={W_B_target.ToString("F3")}, Actual={actual_W_B.ToString("F3")}, DiffMag={(W_B_target - actual_W_B).magnitude:F5}");
                 Vector3 actual_W_C = meshHolderGO.transform.TransformPoint(SL_C);
-                RLog.Msg($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
+                DebugManager.DebugLog($"    Verify W_C (idx {idxC}): Target={W_C_target.ToString("F3")}, Actual={actual_W_C.ToString("F3")}, DiffMag={(W_C_target - actual_W_C).magnitude:F5}");
 
                 //add the new holder to our meshHolder list
                 navMeshHolder.Add(meshHolderGO);
@@ -523,14 +532,14 @@ namespace AllowBuildInCaves.NavMeshEditing
             }
 
             if (navmeshesProcessed > 0) { 
-                RLog.Msg($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
+                DebugManager.DebugLog($"{navmeshesProcessed} NavMeshGraph(s) processed. Flushing Graph Updates..."); 
                 AstarPath.active.FlushGraphUpdates(); 
-                RLog.Msg("Rescanning the AstarPath...");
+                DebugManager.DebugLog("Rescanning the AstarPath...");
                 AstarPath.active.Scan();
             }
             else 
             { 
-                RLog.Msg("No NavMeshGraphs were processed."); 
+                DebugManager.DebugLog("No NavMeshGraphs were processed."); 
             }
         }
     }
